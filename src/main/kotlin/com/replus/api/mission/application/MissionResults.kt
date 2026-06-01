@@ -4,8 +4,10 @@ import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -40,4 +42,39 @@ data class ParticipationResult(
     val viewerHasSubmitted: Boolean,
     val canViewFriendResponses: Boolean,
     val allSubmitted: Boolean,
+)
+
+data class MissionResponseUploadMetadata(
+    val contentType: String,
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    val width: Int?,
+    val height: Int?,
+)
+
+data class MissionResponseCreateCommand(
+    val objectKey: String,
+    val contentType: String,
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    val width: Int?,
+    val height: Int?,
+    val clientCapturedAt: Instant?,
+)
+
+data class MissionResponseUploadUrlResult(
+    val uploadUrl: String,
+    val method: String,
+    val objectKey: String,
+    val requiredHeaders: Map<String, String>,
+    val expiresAt: Instant,
+    val maxFileSizeBytes: Long,
+)
+
+data class CreatedMissionResponseResult(
+    val response: MissionResponse,
+    val videoAsset: VideoAsset,
+    val author: User,
 )

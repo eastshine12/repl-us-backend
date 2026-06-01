@@ -51,4 +51,18 @@ class MissionResponseEntity(
             createdAt = createdAt,
             deletedAt = deletedAt,
         )
+
+    companion object {
+        fun from(response: MissionResponse): MissionResponseEntity =
+            MissionResponseEntity(
+                id = response.id,
+                roomId = response.roomId,
+                missionId = response.missionId,
+                memberId = response.memberId,
+                videoAssetId = response.videoAssetId,
+                status = response.status,
+                createdAt = response.createdAt,
+                deletedAt = response.deletedAt,
+            )
+    }
 }

@@ -20,6 +20,12 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
         missionId: UUID,
         status: MissionResponseStatus,
     ): List<MissionResponseEntity>
+
+    fun findByMissionIdAndMemberIdAndStatus(
+        missionId: UUID,
+        memberId: UUID,
+        status: MissionResponseStatus,
+    ): MissionResponseEntity?
 }
 
 interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID>

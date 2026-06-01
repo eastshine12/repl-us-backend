@@ -55,4 +55,20 @@ class VideoAssetEntity(
             thumbnailObjectKey = thumbnailObjectKey,
             createdAt = createdAt,
         )
+
+    companion object {
+        fun from(videoAsset: VideoAsset): VideoAssetEntity =
+            VideoAssetEntity(
+                id = videoAsset.id,
+                objectKey = videoAsset.objectKey,
+                contentType = videoAsset.contentType,
+                fileSizeBytes = videoAsset.fileSizeBytes,
+                durationSeconds = videoAsset.durationSeconds,
+                hasAudio = videoAsset.hasAudio,
+                width = videoAsset.width,
+                height = videoAsset.height,
+                thumbnailObjectKey = videoAsset.thumbnailObjectKey,
+                createdAt = videoAsset.createdAt,
+            )
+    }
 }

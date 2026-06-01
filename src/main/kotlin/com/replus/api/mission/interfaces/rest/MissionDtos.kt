@@ -1,11 +1,19 @@
 package com.replus.api.mission.interfaces.rest
 
+import com.replus.api.mission.application.CreatedMissionResponseResult
+import com.replus.api.mission.application.MissionResponseCreateCommand
+import com.replus.api.mission.application.MissionResponseUploadMetadata
+import com.replus.api.mission.application.MissionResponseUploadUrlResult
 import com.replus.api.mission.application.TodayResult
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.room.domain.model.RoomRole
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.time.LocalDate
@@ -16,6 +24,46 @@ data class UpdateMissionRequest(
     @field:Size(max = 80)
     val prompt: String,
     val category: MissionCategory,
+)
+
+data class CreateUploadUrlRequest(
+    @field:NotBlank
+    val contentType: String,
+    @field:Positive
+    @field:Max(15_000_000)
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    @field:Min(1)
+    val width: Int?,
+    @field:Min(1)
+    val height: Int?,
+)
+
+data class UploadUrlResponse(
+    val uploadUrl: String,
+    val method: String,
+    val objectKey: String,
+    val requiredHeaders: Map<String, String>,
+    val expiresAt: Instant,
+    val maxFileSizeBytes: Long,
+)
+
+data class CreateMissionResponseRequest(
+    @field:NotBlank
+    val objectKey: String,
+    @field:NotBlank
+    val contentType: String,
+    @field:Positive
+    @field:Max(15_000_000)
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    @field:Min(1)
+    val width: Int?,
+    @field:Min(1)
+    val height: Int?,
+    val clientCapturedAt: Instant?,
 )
 
 data class MissionResponseDto(
@@ -80,6 +128,20 @@ data class MissionResponsePreviewResponse(
     val deletedAt: Instant?,
 )
 
+data class MissionResponseCreatedResponse(
+    val id: UUID,
+    val roomId: UUID,
+    val missionId: UUID,
+    val memberId: UUID,
+    val author: UserSummaryResponse,
+    val status: String,
+    val visibility: String,
+    val video: VideoAssetResponse,
+    val reactionSummary: List<ReactionSummaryItemResponse>,
+    val createdAt: Instant,
+    val deletedAt: Instant?,
+)
+
 data class VideoAssetResponse(
     val objectKey: String,
     val playbackUrl: String,
@@ -118,6 +180,70 @@ fun Mission.toResponse(canEdit: Boolean): MissionResponseDto =
         editedByMemberId = editedByMemberId,
         editedAt = editedAt,
         createdAt = createdAt,
+    )
+
+fun CreateUploadUrlRequest.toMetadata(): MissionResponseUploadMetadata =
+    MissionResponseUploadMetadata(
+        contentType = contentType,
+        fileSizeBytes = fileSizeBytes,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+    )
+
+fun MissionResponseUploadUrlResult.toResponse(): UploadUrlResponse =
+    UploadUrlResponse(
+        uploadUrl = uploadUrl,
+        method = method,
+        objectKey = objectKey,
+        requiredHeaders = requiredHeaders,
+        expiresAt = expiresAt,
+        maxFileSizeBytes = maxFileSizeBytes,
+    )
+
+fun CreateMissionResponseRequest.toCommand(): MissionResponseCreateCommand =
+    MissionResponseCreateCommand(
+        objectKey = objectKey,
+        contentType = contentType,
+        fileSizeBytes = fileSizeBytes,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+        clientCapturedAt = clientCapturedAt,
+    )
+
+fun CreatedMissionResponseResult.toResponse(): MissionResponseCreatedResponse =
+    MissionResponseCreatedResponse(
+        id = response.id,
+        roomId = response.roomId,
+        missionId = response.missionId,
+        memberId = response.memberId,
+        author = UserSummaryResponse(
+            id = author.id,
+            displayName = author.displayName,
+            avatarUrl = author.avatarUrl,
+        ),
+        status = response.status.name,
+        visibility = "VISIBLE",
+        video = videoAsset.toResponse(),
+        reactionSummary = emptyList(),
+        createdAt = response.createdAt,
+        deletedAt = response.deletedAt,
+    )
+
+fun VideoAsset.toResponse(): VideoAssetResponse =
+    VideoAssetResponse(
+        objectKey = objectKey,
+        playbackUrl = "http://localhost:8080/mock-playback/$objectKey",
+        thumbnailUrl = thumbnailObjectKey?.let { "http://localhost:8080/mock-playback/$it" },
+        contentType = contentType,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+        fileSizeBytes = fileSizeBytes,
     )
 
 fun TodayResult.toResponse(): TodayResponse {
