@@ -276,23 +276,26 @@ fun TodayResult.toResponse(): TodayResponse {
             allSubmitted = participation.allSubmitted,
         ),
         responses = responses.map {
-            val author = members.first { member -> member.member.id == it.memberId }.user
+            val response = it.response
+            val isMine = response.memberId == currentMember.id
+            val canSeeVideo = isMine || participation.canViewFriendResponses
+            val author = members.first { member -> member.member.id == response.memberId }.user
             MissionResponsePreviewResponse(
-                id = it.id,
-                missionId = it.missionId,
-                memberId = it.memberId,
+                id = response.id,
+                missionId = response.missionId,
+                memberId = response.memberId,
                 author = UserSummaryResponse(
                     id = author.id,
                     displayName = author.displayName,
                     avatarUrl = author.avatarUrl,
                 ),
-                isMine = it.memberId == currentMember.id,
-                status = it.status.name,
-                visibility = if (it.memberId == currentMember.id) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
-                video = null,
+                isMine = isMine,
+                status = response.status.name,
+                visibility = if (canSeeVideo) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
+                video = if (canSeeVideo) it.videoAsset.toResponse() else null,
                 reactionSummary = emptyList(),
-                createdAt = it.createdAt,
-                deletedAt = it.deletedAt,
+                createdAt = response.createdAt,
+                deletedAt = response.deletedAt,
             )
         },
         todayFrames = emptyList(),

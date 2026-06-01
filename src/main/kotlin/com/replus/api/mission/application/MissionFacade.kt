@@ -5,6 +5,7 @@ import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.VideoAsset
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
@@ -52,9 +54,12 @@ class MissionFacade(
         val memberResults = activeMembers.map { TodayMemberResult(it, userRepository.getById(it.userId)) }
         val responses = missionResponseRepository.findActiveByMissionId(mission.id)
         val viewerResponse = responses.firstOrNull { it.memberId == currentMember!!.id }
-        val releaseState = missionReleaseStateRepository.findByMissionId(mission.id)
+        val releaseState = releaseIfDue(missionReleaseStateRepository.findByMissionId(mission.id))
         val allSubmitted = responses.size == activeMembers.size && activeMembers.isNotEmpty()
         val canViewFriendResponses = releaseState?.releasedAt?.let { !clock.instant().isBefore(it) } ?: false
+        val videoAssetsById = videoAssetRepository
+            .findAllByIds(responses.map { it.videoAssetId })
+            .associateBy { it.id }
 
         return TodayResult(
             serverDate = today,
@@ -76,7 +81,12 @@ class MissionFacade(
                 canViewFriendResponses = canViewFriendResponses,
                 allSubmitted = allSubmitted,
             ),
-            responses = responses,
+            responses = responses.map { response ->
+                TodayMissionResponseResult(
+                    response = response,
+                    videoAsset = videoAssetsById.getValue(response.videoAssetId),
+                )
+            },
             releaseState = releaseState,
         )
     }
@@ -191,6 +201,7 @@ class MissionFacade(
                 deletedAt = null,
             ),
         )
+        scheduleReleaseIfAllSubmitted(mission.id, roomId, now)
 
         return CreatedMissionResponseResult(
             response = response,
@@ -230,6 +241,37 @@ class MissionFacade(
     private fun objectKey(roomId: UUID, missionId: UUID, memberId: UUID, contentType: String): String =
         "rooms/$roomId/missions/$missionId/members/$memberId.${extension(contentType)}"
 
+    private fun scheduleReleaseIfAllSubmitted(missionId: UUID, roomId: UUID, now: Instant) {
+        if (missionReleaseStateRepository.findByMissionId(missionId) != null) {
+            return
+        }
+
+        val activeMemberCount = roomMemberRepository.countActiveByRoomId(roomId)
+        val submittedCount = missionResponseRepository.countActiveByMissionId(missionId)
+        if (activeMemberCount > 0 && submittedCount >= activeMemberCount) {
+            missionReleaseStateRepository.save(
+                MissionReleaseState(
+                    missionId = missionId,
+                    allSubmittedAt = now,
+                    releaseScheduledAt = now.plus(RELEASE_DELAY),
+                    releasedAt = null,
+                    failedAt = null,
+                ),
+            )
+        }
+    }
+
+    private fun releaseIfDue(releaseState: MissionReleaseState?): MissionReleaseState? {
+        val scheduledAt = releaseState?.releaseScheduledAt ?: return releaseState
+        if (releaseState.releasedAt != null || clock.instant().isBefore(scheduledAt)) {
+            return releaseState
+        }
+
+        return missionReleaseStateRepository.save(
+            releaseState.copy(releasedAt = clock.instant()),
+        )
+    }
+
     private fun extension(contentType: String): String =
         when (contentType.lowercase()) {
             "video/webm" -> "webm"
@@ -241,5 +283,6 @@ class MissionFacade(
     companion object {
         const val MAX_UPLOAD_FILE_SIZE_BYTES: Long = 15_000_000
         private val UPLOAD_URL_TTL: Duration = Duration.ofMinutes(10)
+        private val RELEASE_DELAY: Duration = Duration.ofSeconds(60)
     }
 }

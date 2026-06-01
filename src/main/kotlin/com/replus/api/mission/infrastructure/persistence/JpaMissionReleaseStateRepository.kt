@@ -12,4 +12,7 @@ class JpaMissionReleaseStateRepository(
 ) : MissionReleaseStateRepository {
     override fun findByMissionId(missionId: UUID): MissionReleaseState? =
         missionReleaseStateJpaRepository.findByIdOrNull(missionId)?.toDomain()
+
+    override fun save(releaseState: MissionReleaseState): MissionReleaseState =
+        missionReleaseStateJpaRepository.save(MissionReleaseStateEntity.from(releaseState)).toDomain()
 }

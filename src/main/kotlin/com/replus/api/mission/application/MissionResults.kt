@@ -20,8 +20,13 @@ data class TodayResult(
     val memberCount: Int,
     val mission: Mission,
     val participation: ParticipationResult,
-    val responses: List<MissionResponse>,
+    val responses: List<TodayMissionResponseResult>,
     val releaseState: MissionReleaseState?,
+)
+
+data class TodayMissionResponseResult(
+    val response: MissionResponse,
+    val videoAsset: VideoAsset,
 )
 
 data class TodayMemberResult(

@@ -1,5 +1,7 @@
 package com.replus.api.mission.interfaces.rest
 
+import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -12,6 +14,9 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.ObjectMapper
+import java.time.Duration
+import java.time.Instant
+import java.util.UUID
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -29,6 +34,9 @@ class MissionResponseApiTest {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var missionReleaseStateRepository: MissionReleaseStateRepository
 
     @Test
     fun `업로드 URL은 현재 멤버의 object key를 발급한다`() {
@@ -62,6 +70,34 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.objectKey").value("rooms/$roomId/missions/$missionId/members/$memberId.webm"))
             .andExpect(jsonPath("$.requiredHeaders['Content-Type']").value("video/webm"))
             .andExpect(jsonPath("$.maxFileSizeBytes").value(15000000))
+    }
+
+    @Test
+    fun `리플 제출 후 오늘 화면은 내 영상 메타데이터를 보여준다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val uploadUrl = createUploadUrl(roomId, missionId)
+        val objectKey = uploadUrl["objectKey"].asString()
+
+        // when
+        submitResponse(roomId, missionId, objectKey)
+
+        // then
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.viewer.hasSubmittedToday").value(true))
+            .andExpect(jsonPath("$.viewer.todayResponseId").exists())
+            .andExpect(jsonPath("$.participation.submittedCount").value(1))
+            .andExpect(jsonPath("$.responses[0].isMine").value(true))
+            .andExpect(jsonPath("$.responses[0].visibility").value("VISIBLE"))
+            .andExpect(jsonPath("$.responses[0].video.objectKey").value(objectKey))
+            .andExpect(jsonPath("$.responses[0].video.durationSeconds").value(3))
+            .andExpect(jsonPath("$.responses[0].video.hasAudio").value(true))
     }
 
     @Test
@@ -99,11 +135,93 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.code").value("RESPONSE_ALREADY_EXISTS"))
     }
 
-    private fun getToday() =
+    @Test
+    fun `전원 제출되면 60초 공개 예약 상태를 저장한다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        submitResponseForToken(roomId, missionId, token = "dev-token-joon")
+
+        assertThat(missionReleaseStateRepository.findByMissionId(UUID.fromString(missionId)))
+            .isNull()
+
+        // when
+        submitResponseForToken(roomId, missionId, token = "dev-token-ara")
+
+        // then
+        val releaseState = missionReleaseStateRepository.findByMissionId(UUID.fromString(missionId))
+        assertThat(releaseState).isNotNull
+        assertThat(releaseState!!.allSubmittedAt).isNotNull
+        assertThat(releaseState.releaseScheduledAt).isNotNull
+        assertThat(Duration.between(releaseState.allSubmittedAt, releaseState.releaseScheduledAt))
+            .isEqualTo(Duration.ofSeconds(60))
+        assertThat(releaseState.releasedAt).isNull()
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.participation.submittedCount").value(3))
+            .andExpect(jsonPath("$.participation.allSubmitted").value(true))
+            .andExpect(jsonPath("$.participation.canViewFriendResponses").value(false))
+    }
+
+    @Test
+    fun `공개 예약 시간이 지나면 오늘 화면에서 친구 영상도 보인다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        submitResponseForToken(roomId, missionId, token = "dev-token-joon")
+        submitResponseForToken(roomId, missionId, token = "dev-token-ara")
+
+        val releaseState = missionReleaseStateRepository.findByMissionId(UUID.fromString(missionId))!!
+        missionReleaseStateRepository.save(
+            releaseState.copy(
+                releaseScheduledAt = Instant.parse("2026-05-24T09:15:00Z"),
+            ),
+        )
+
+        // when
+        val result = mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        val responseJson = objectMapper.readTree(
+            result.andExpect(status().isOk)
+                .andExpect(jsonPath("$.participation.canViewFriendResponses").value(true))
+                .andReturn()
+                .response
+                .contentAsString,
+        )
+        val responses = responseJson["responses"]
+        val friendResponses = (0 until responses.size())
+            .map { responses[it] }
+            .filter { !it["isMine"].booleanValue() }
+
+        assertThat(friendResponses).hasSize(2)
+        assertThat(friendResponses).allSatisfy {
+            assertThat(it["visibility"].asString()).isEqualTo("VISIBLE")
+            assertThat(it["video"]["objectKey"].asString()).isNotBlank()
+        }
+
+        val openedState = missionReleaseStateRepository.findByMissionId(UUID.fromString(missionId))
+        assertThat(openedState!!.releasedAt).isNotNull
+    }
+
+    private fun getToday(token: String = "dev-token-mina") =
         objectMapper.readTree(
             mockMvc.perform(
                 get("/api/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/today")
-                    .header("Authorization", "Bearer dev-token-mina"),
+                    .header("Authorization", "Bearer $token"),
             )
                 .andExpect(status().isOk)
                 .andReturn()
@@ -135,6 +253,50 @@ class MissionResponseApiTest {
                 .response
                 .contentAsString,
         )
+
+    private fun createUploadUrl(roomId: String, missionId: String, token: String) =
+        objectMapper.readTree(
+            mockMvc.perform(
+                post("/api/rooms/$roomId/missions/$missionId/responses/upload-url")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                            {
+                              "contentType": "video/webm",
+                              "fileSizeBytes": 842120,
+                              "durationSeconds": 3,
+                              "hasAudio": true,
+                              "width": 720,
+                              "height": 1280
+                            }
+                        """.trimIndent(),
+                    ),
+            )
+                .andExpect(status().isCreated)
+                .andReturn()
+                .response
+                .contentAsString,
+        )
+
+    private fun submitResponse(
+        roomId: String,
+        missionId: String,
+        objectKey: String,
+        token: String = "dev-token-mina",
+    ) {
+        mockMvc.perform(
+            post("/api/rooms/$roomId/missions/$missionId/responses")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(missionResponseBody(objectKey)),
+        ).andExpect(status().isCreated)
+    }
+
+    private fun submitResponseForToken(roomId: String, missionId: String, token: String) {
+        val objectKey = createUploadUrl(roomId, missionId, token)["objectKey"].asString()
+        submitResponse(roomId, missionId, objectKey, token)
+    }
 
     private fun missionResponseBody(objectKey: String): String =
         """
