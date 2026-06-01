@@ -1,0 +1,25 @@
+package com.replus.api.auth.application
+
+import com.replus.api.auth.domain.model.User
+import com.replus.api.room.domain.model.Room
+import com.replus.api.room.domain.model.RoomMember
+import java.time.Instant
+import java.time.LocalDate
+
+data class AuthSessionResult(
+    val accessToken: String,
+    val expiresAt: Instant,
+    val user: User,
+)
+
+data class CurrentUserResult(
+    val user: User,
+    val rooms: List<RoomSummaryResult>,
+)
+
+data class RoomSummaryResult(
+    val room: Room,
+    val memberCount: Int,
+    val currentMember: RoomMember,
+    val lastMissionDate: LocalDate?,
+)
