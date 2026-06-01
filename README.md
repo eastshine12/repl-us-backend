@@ -1,23 +1,25 @@
-# repl-us-backend
+# repl.us Backend
 
-Kotlin Spring Boot backend for **repl.us**, a private social MVP where close friends answer one daily prompt with fixed 3-second video responses. This repository is designed to be safe for a public portfolio backend: no private frontend code, production secrets, real service endpoints, private keys, or checked-in `.env` values are required.
+**repl.us** is a private social room for close friends who want a small daily ritual together. Each room gets one prompt a day, and every active member answers with a fixed 3-second silent-friendly video clip. Friend responses stay hidden until everyone has joined in, then the room opens the shared moment together.
 
-## Core Features
+The product is designed around intimacy rather than broadcast. Rooms are small, invite-only, and built for 3-6 friends. The backend keeps the daily mission, membership, invite, response visibility, and release policies consistent so the client can focus on capture, playback, and the room experience.
 
-- Development bearer-session stub for local API work before real social login.
-- Current user and active room list lookup.
-- Room detail lookup guarded by active room membership.
-- Daily room mission lookup with on-demand creation.
-- Invite link creation with opaque invite codes.
-- Authenticated invite join flow with a 6-member room limit.
+## Features
+
+- Small private rooms with active membership checks.
+- Daily room mission lookup with on-demand mission creation.
 - Owner-only mission editing before the first active response.
-- Foundation domain model for users, rooms, members, invite links, missions, responses, video assets, and mission release state.
+- Opaque invite codes that do not expose room IDs.
+- Authenticated invite join flow with a 6-member room limit.
+- Participation state for today's mission, including submitted counts and release readiness.
+- Foundation storage model for users, rooms, members, invites, missions, responses, video assets, and mission release state.
+- Development bearer-session flow for local testing before social login integration.
 
-The first slice intentionally excludes object storage uploads, comments/reactions APIs, the release timer worker, push notifications, and native-app integration.
+This first backend slice focuses on room access, invites, and daily mission policy. Video object storage, comments, reactions, release workers, push notifications, and native-app integration are planned outside this foundation slice.
 
 ## Architecture
 
-The app uses a traditional DDD layered structure while keeping Clean Architecture dependency direction:
+The backend follows a traditional DDD layered structure while keeping Clean Architecture dependency direction:
 
 ```text
 interfaces -> application -> domain
@@ -34,7 +36,7 @@ com.replus.api
   common/
 ```
 
-Domain models and policies stay framework-free. Application facades own transaction boundaries and use-case orchestration. Infrastructure implements domain repository contracts with Spring Data JPA. REST controllers only handle authentication extraction, request validation, and DTO mapping.
+Domain models and policies stay framework-free. Application facades own transaction boundaries and use-case orchestration. Infrastructure implements domain repository contracts with Spring Data JPA. REST controllers handle authentication extraction, request validation, and DTO mapping.
 
 ## Tech Stack
 
@@ -45,17 +47,16 @@ Domain models and policies stay framework-free. Application facades own transact
 - Spring Data JPA
 - Flyway
 - H2 for local development and tests
-- PostgreSQL driver for production-style deployment targets
+- PostgreSQL driver for deployment targets
 - JUnit 5 and AssertJ
 
 ## Local Run
 
 ```bash
-cd apps/api
 ./gradlew bootRun
 ```
 
-The app starts on `http://localhost:8080` by default. Local dev seed data is enabled by default:
+The app starts on `http://localhost:8080` by default. Local seed data is enabled for development:
 
 ```text
 Authorization: Bearer dev-token-mina
@@ -80,28 +81,10 @@ curl -X POST http://localhost:8080/api/auth/guest \
 ## Tests
 
 ```bash
-cd apps/api
 ./gradlew test
 ```
 
 Policy tests cover active room membership, owner-only mission edits, edit lock after the first active response, room capacity, and opaque invite code generation.
-
-## Environment Variables
-
-See [.env.example](./.env.example).
-
-```text
-PORT=8080
-SPRING_DATASOURCE_URL=jdbc:h2:mem:replus;MODE=PostgreSQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1
-SPRING_DATASOURCE_USERNAME=sa
-SPRING_DATASOURCE_PASSWORD=
-SPRING_DATASOURCE_DRIVER=org.h2.Driver
-REPLUS_WEB_BASE_URL=http://localhost:3000
-REPLUS_SEED_DEV_DATA=true
-H2_CONSOLE_ENABLED=true
-```
-
-For PostgreSQL, set the datasource URL, username, password, and driver through the runtime environment. Do not commit real credentials.
 
 ## API Documentation
 
@@ -111,4 +94,4 @@ The current API contract lives in:
 docs/api/openapi.yaml
 ```
 
-Keep this contract in sync with the mobile/web client integration work.
+Keep this contract in sync with client integration work.
