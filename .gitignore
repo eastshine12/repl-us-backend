@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+
+.gradle/
+build/
+out/
+*.class
+
+.env
+.env.*
+!.env.example
+
+logs/
+tmp/
