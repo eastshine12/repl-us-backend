@@ -23,6 +23,11 @@ class JpaMissionResponseRepository(
             .findByMissionIdAndMemberIdAndStatus(missionId, memberId, MissionResponseStatus.ACTIVE)
             ?.toDomain()
 
+    override fun findActiveByIdAndRoomId(responseId: UUID, roomId: UUID): MissionResponse? =
+        missionResponseJpaRepository
+            .findByIdAndRoomIdAndStatus(responseId, roomId, MissionResponseStatus.ACTIVE)
+            ?.toDomain()
+
     override fun save(response: MissionResponse): MissionResponse =
         missionResponseJpaRepository.save(MissionResponseEntity.from(response)).toDomain()
 }

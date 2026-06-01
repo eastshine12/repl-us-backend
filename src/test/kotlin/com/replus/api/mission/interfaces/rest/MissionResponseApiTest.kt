@@ -22,6 +22,8 @@ import java.util.UUID
 @AutoConfigureMockMvc
 @Sql(
     statements = [
+        "delete from response_comments",
+        "delete from response_reactions",
         "delete from mission_release_states",
         "delete from mission_responses",
         "delete from video_assets",

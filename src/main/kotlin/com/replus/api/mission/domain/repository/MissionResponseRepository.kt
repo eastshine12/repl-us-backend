@@ -10,5 +10,7 @@ interface MissionResponseRepository {
 
     fun findActiveByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponse?
 
+    fun findActiveByIdAndRoomId(responseId: UUID, roomId: UUID): MissionResponse?
+
     fun save(response: MissionResponse): MissionResponse
 }

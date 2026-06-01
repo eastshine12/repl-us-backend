@@ -26,8 +26,18 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
         memberId: UUID,
         status: MissionResponseStatus,
     ): MissionResponseEntity?
+
+    fun findByIdAndRoomIdAndStatus(
+        id: UUID,
+        roomId: UUID,
+        status: MissionResponseStatus,
+    ): MissionResponseEntity?
 }
 
 interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID>
 
 interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID>
+
+interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID>
+
+interface ResponseCommentJpaRepository : JpaRepository<ResponseCommentEntity, UUID>
