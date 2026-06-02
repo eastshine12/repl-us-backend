@@ -3,6 +3,7 @@ package com.replus.api.mission.application
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
+import com.replus.api.mission.application.port.VideoStoragePort
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
@@ -40,6 +41,7 @@ class MissionFacade(
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
     private val responseReactionRepository: ResponseReactionRepository,
+    private val videoStoragePort: VideoStoragePort,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
     private val missionResponseSubmissionPolicy: MissionResponseSubmissionPolicy,
@@ -150,14 +152,20 @@ class MissionFacade(
             memberId = member.id,
             contentType = metadata.contentType,
         )
-
-        return MissionResponseUploadUrlResult(
-            uploadUrl = "http://localhost:8080/mock-upload/$objectKey",
-            method = "PUT",
+        val uploadTarget = videoStoragePort.createUploadTarget(
             objectKey = objectKey,
-            requiredHeaders = mapOf("Content-Type" to metadata.contentType),
+            contentType = metadata.contentType,
             expiresAt = clock.instant().plus(UPLOAD_URL_TTL),
             maxFileSizeBytes = MAX_UPLOAD_FILE_SIZE_BYTES,
+        )
+
+        return MissionResponseUploadUrlResult(
+            uploadUrl = uploadTarget.uploadUrl,
+            method = uploadTarget.method,
+            objectKey = uploadTarget.objectKey,
+            requiredHeaders = uploadTarget.requiredHeaders,
+            expiresAt = uploadTarget.expiresAt,
+            maxFileSizeBytes = uploadTarget.maxFileSizeBytes,
         )
     }
 
