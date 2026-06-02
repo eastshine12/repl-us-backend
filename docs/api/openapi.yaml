@@ -362,6 +362,31 @@ paths:
           $ref: "#/components/responses/Conflict"
 
   /api/rooms/{roomId}/responses/{responseId}/comments:
+    get:
+      tags:
+        - Comments
+      operationId: listComments
+      summary: List comments on a visible response
+      description: Comments are visible only to signed-in active room members who can see the response.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/ResponseId"
+      responses:
+        "200":
+          description: Response comments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
     post:
       tags:
         - Comments
@@ -736,6 +761,16 @@ components:
           minLength: 1
           maxLength: 80
           example: 편의점 어디 거야?
+
+    CommentListResponse:
+      type: object
+      required:
+        - comments
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
 
     User:
       type: object

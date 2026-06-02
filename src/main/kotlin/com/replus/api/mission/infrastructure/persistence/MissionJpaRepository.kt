@@ -42,4 +42,6 @@ interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, 
     fun findAllByResponseIdIn(responseIds: Collection<UUID>): List<ResponseReactionEntity>
 }
 
-interface ResponseCommentJpaRepository : JpaRepository<ResponseCommentEntity, UUID>
+interface ResponseCommentJpaRepository : JpaRepository<ResponseCommentEntity, UUID> {
+    fun findAllByResponseIdAndDeletedAtIsNullOrderByCreatedAtAsc(responseId: UUID): List<ResponseCommentEntity>
+}

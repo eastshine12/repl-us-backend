@@ -1,6 +1,7 @@
 package com.replus.api.mission.interfaces.rest
 
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
+import com.replus.api.mission.application.CommentListResult
 import com.replus.api.mission.application.CreatedCommentResult
 import com.replus.api.mission.application.CreatedReactionResult
 import com.replus.api.mission.domain.model.ReactionType
@@ -37,6 +38,10 @@ data class CommentResponse(
     val deletedAt: Instant?,
 )
 
+data class CommentListResponse(
+    val comments: List<CommentResponse>,
+)
+
 fun CreatedReactionResult.toResponse(): ReactionResponse =
     ReactionResponse(
         id = reaction.id,
@@ -59,4 +64,23 @@ fun CreatedCommentResult.toResponse(): CommentResponse =
         body = comment.body,
         createdAt = comment.createdAt,
         deletedAt = comment.deletedAt,
+    )
+
+fun CommentListResult.toResponse(): CommentListResponse =
+    CommentListResponse(
+        comments = comments.map {
+            CommentResponse(
+                id = it.comment.id,
+                responseId = it.comment.responseId,
+                memberId = it.comment.memberId,
+                author = UserSummaryResponse(
+                    id = it.author.id,
+                    displayName = it.author.displayName,
+                    avatarUrl = it.author.avatarUrl,
+                ),
+                body = it.comment.body,
+                createdAt = it.comment.createdAt,
+                deletedAt = it.comment.deletedAt,
+            )
+        },
     )

@@ -79,6 +79,27 @@ class ResponseInteractionFacade(
         )
     }
 
+    @Transactional
+    fun listComments(
+        userId: UUID,
+        roomId: UUID,
+        responseId: UUID,
+    ): CommentListResult {
+        val member = requireActiveMember(roomId, userId)
+        val response = requireVisibleResponse(roomId, responseId, member)
+        val comments = responseCommentRepository.findActiveByResponseId(response.id)
+        val activeMembersById = roomMemberRepository.findActiveByRoomId(roomId).associateBy { it.id }
+
+        return CommentListResult(
+            comments = comments.map {
+                CommentWithAuthorResult(
+                    comment = it,
+                    author = userRepository.getById(activeMembersById.getValue(it.memberId).userId),
+                )
+            },
+        )
+    }
+
     private fun requireActiveMember(roomId: UUID, userId: UUID): RoomMember =
         roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
             .also { roomAccessPolicy.requireActiveMember(it) }!!
