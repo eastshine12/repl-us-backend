@@ -4,6 +4,7 @@ import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
@@ -27,6 +28,13 @@ data class TodayResult(
 data class TodayMissionResponseResult(
     val response: MissionResponse,
     val videoAsset: VideoAsset,
+    val reactionSummary: List<ReactionSummaryResult>,
+)
+
+data class ReactionSummaryResult(
+    val type: ReactionType,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 data class TodayMemberResult(

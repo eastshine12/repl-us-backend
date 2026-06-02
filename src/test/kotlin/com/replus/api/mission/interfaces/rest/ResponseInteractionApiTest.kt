@@ -106,6 +106,31 @@ class ResponseInteractionApiTest {
             .andExpect(jsonPath("$.code").value("RESPONSE_NOT_VISIBLE"))
     }
 
+    @Test
+    fun `리액션 생성 후 오늘 화면은 리액션 요약을 보여준다`() {
+        // given
+        val fixture = releasedFixture()
+        val friendResponseId = fixture.friendResponseId
+
+        mockMvc.perform(
+            post("/api/rooms/${fixture.roomId}/responses/$friendResponseId/reactions")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"HEART"}"""),
+        ).andExpect(status().isCreated)
+
+        // when
+        val today = getTodayByRoomId(fixture.roomId)
+
+        // then
+        val friendResponse = findResponse(today, friendResponseId)
+        val reactionSummary = friendResponse["reactionSummary"]
+        assertThat(reactionSummary.size()).isEqualTo(1)
+        assertThat(reactionSummary[0]["type"].asString()).isEqualTo("HEART")
+        assertThat(reactionSummary[0]["count"].intValue()).isEqualTo(1)
+        assertThat(reactionSummary[0]["reactedByViewer"].booleanValue()).isTrue()
+    }
+
     private fun releasedFixture(): ReleasedFixture {
         val today = getToday()
         val roomId = today["room"]["id"].asString()
@@ -147,6 +172,25 @@ class ResponseInteractionApiTest {
                 .response
                 .contentAsString,
         )
+
+    private fun getTodayByRoomId(roomId: String, token: String = "dev-token-mina") =
+        objectMapper.readTree(
+            mockMvc.perform(
+                get("/api/rooms/$roomId/today")
+                    .header("Authorization", "Bearer $token"),
+            )
+                .andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString,
+        )
+
+    private fun findResponse(today: tools.jackson.databind.JsonNode, responseId: String): tools.jackson.databind.JsonNode {
+        val responses = today["responses"]
+        return (0 until responses.size())
+            .map { responses[it] }
+            .first { it["id"].asString() == responseId }
+    }
 
     private fun submitResponseForToken(roomId: String, missionId: String, token: String) =
         objectMapper.readTree(

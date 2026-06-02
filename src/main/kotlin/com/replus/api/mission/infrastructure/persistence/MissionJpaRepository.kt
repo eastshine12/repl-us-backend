@@ -38,6 +38,8 @@ interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID>
 
 interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID>
 
-interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID>
+interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID> {
+    fun findAllByResponseIdIn(responseIds: Collection<UUID>): List<ResponseReactionEntity>
+}
 
 interface ResponseCommentJpaRepository : JpaRepository<ResponseCommentEntity, UUID>

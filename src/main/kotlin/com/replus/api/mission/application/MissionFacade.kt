@@ -8,12 +8,15 @@ import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
+import com.replus.api.mission.domain.model.ReactionType
+import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.mission.domain.policy.MissionEditPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.ResponseReactionRepository
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.policy.RoomAccessPolicy
 import com.replus.api.room.domain.repository.RoomMemberRepository
@@ -36,6 +39,7 @@ class MissionFacade(
     private val missionResponseRepository: MissionResponseRepository,
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
+    private val responseReactionRepository: ResponseReactionRepository,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
     private val missionResponseSubmissionPolicy: MissionResponseSubmissionPolicy,
@@ -60,6 +64,9 @@ class MissionFacade(
         val videoAssetsById = videoAssetRepository
             .findAllByIds(responses.map { it.videoAssetId })
             .associateBy { it.id }
+        val reactionsByResponseId = responseReactionRepository
+            .findAllByResponseIds(responses.map { it.id })
+            .groupBy { it.responseId }
 
         return TodayResult(
             serverDate = today,
@@ -85,6 +92,10 @@ class MissionFacade(
                 TodayMissionResponseResult(
                     response = response,
                     videoAsset = videoAssetsById.getValue(response.videoAssetId),
+                    reactionSummary = reactionSummary(
+                        reactions = reactionsByResponseId[response.id] ?: emptyList(),
+                        viewerMemberId = currentMember!!.id,
+                    ),
                 )
             },
             releaseState = releaseState,
@@ -271,6 +282,23 @@ class MissionFacade(
             releaseState.copy(releasedAt = clock.instant()),
         )
     }
+
+    private fun reactionSummary(
+        reactions: List<ResponseReaction>,
+        viewerMemberId: UUID,
+    ): List<ReactionSummaryResult> =
+        ReactionType.entries.mapNotNull { type ->
+            val reactionsOfType = reactions.filter { it.type == type }
+            if (reactionsOfType.isEmpty()) {
+                null
+            } else {
+                ReactionSummaryResult(
+                    type = type,
+                    count = reactionsOfType.size,
+                    reactedByViewer = reactionsOfType.any { it.memberId == viewerMemberId },
+                )
+            }
+        }
 
     private fun extension(contentType: String): String =
         when (contentType.lowercase()) {

@@ -293,7 +293,13 @@ fun TodayResult.toResponse(): TodayResponse {
                 status = response.status.name,
                 visibility = if (canSeeVideo) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
                 video = if (canSeeVideo) it.videoAsset.toResponse() else null,
-                reactionSummary = emptyList(),
+                reactionSummary = it.reactionSummary.map { summary ->
+                    ReactionSummaryItemResponse(
+                        type = summary.type.name,
+                        count = summary.count,
+                        reactedByViewer = summary.reactedByViewer,
+                    )
+                },
                 createdAt = response.createdAt,
                 deletedAt = response.deletedAt,
             )
