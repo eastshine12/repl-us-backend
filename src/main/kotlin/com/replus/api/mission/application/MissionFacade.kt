@@ -12,6 +12,7 @@ import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.model.VideoAsset
+import com.replus.api.mission.domain.model.VideoAssetStatus
 import com.replus.api.mission.domain.policy.MissionEditPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
@@ -132,7 +133,7 @@ class MissionFacade(
         )
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun createResponseUploadUrl(
         userId: UUID,
         roomId: UUID,
@@ -158,6 +159,7 @@ class MissionFacade(
             expiresAt = clock.instant().plus(UPLOAD_URL_TTL),
             maxFileSizeBytes = MAX_UPLOAD_FILE_SIZE_BYTES,
         )
+        savePendingVideoAsset(objectKey, metadata, clock.instant())
 
         return MissionResponseUploadUrlResult(
             uploadUrl = uploadTarget.uploadUrl,
@@ -194,20 +196,7 @@ class MissionFacade(
         }
 
         val now = clock.instant()
-        val videoAsset = videoAssetRepository.save(
-            VideoAsset(
-                id = UUID.randomUUID(),
-                objectKey = command.objectKey,
-                contentType = command.contentType,
-                fileSizeBytes = command.fileSizeBytes,
-                durationSeconds = command.durationSeconds,
-                hasAudio = command.hasAudio,
-                width = command.width,
-                height = command.height,
-                thumbnailObjectKey = null,
-                createdAt = now,
-            ),
-        )
+        val videoAsset = markVideoAssetReady(command, now)
         val response = missionResponseRepository.save(
             MissionResponse(
                 id = UUID.randomUUID(),
@@ -228,6 +217,60 @@ class MissionFacade(
             author = userRepository.getById(member.userId),
         )
     }
+
+    private fun savePendingVideoAsset(
+        objectKey: String,
+        metadata: MissionResponseUploadMetadata,
+        now: Instant,
+    ): VideoAsset {
+        val existing = videoAssetRepository.findByObjectKey(objectKey)
+        if (existing?.status == VideoAssetStatus.READY) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+
+        return videoAssetRepository.save(
+            VideoAsset(
+                id = existing?.id ?: UUID.randomUUID(),
+                objectKey = objectKey,
+                status = VideoAssetStatus.PENDING_UPLOAD,
+                contentType = metadata.contentType,
+                fileSizeBytes = metadata.fileSizeBytes,
+                durationSeconds = metadata.durationSeconds,
+                hasAudio = metadata.hasAudio,
+                width = metadata.width,
+                height = metadata.height,
+                thumbnailObjectKey = existing?.thumbnailObjectKey,
+                createdAt = existing?.createdAt ?: now,
+                uploadedAt = null,
+            ),
+        )
+    }
+
+    private fun markVideoAssetReady(command: MissionResponseCreateCommand, now: Instant): VideoAsset {
+        val videoAsset = videoAssetRepository.findByObjectKey(command.objectKey)
+            ?: throw CoreException(ErrorType.INVALID_REQUEST)
+        if (videoAsset.status != VideoAssetStatus.PENDING_UPLOAD) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+        if (!videoAsset.hasSameMetadata(command)) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+
+        return videoAssetRepository.save(
+            videoAsset.copy(
+                status = VideoAssetStatus.READY,
+                uploadedAt = now,
+            ),
+        )
+    }
+
+    private fun VideoAsset.hasSameMetadata(command: MissionResponseCreateCommand): Boolean =
+        contentType == command.contentType &&
+            fileSizeBytes == command.fileSizeBytes &&
+            durationSeconds == command.durationSeconds &&
+            hasAudio == command.hasAudio &&
+            width == command.width &&
+            height == command.height
 
     private fun defaultMission(roomId: UUID, missionDate: LocalDate): Mission =
         Mission(

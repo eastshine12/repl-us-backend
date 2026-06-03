@@ -6,6 +6,7 @@ import java.util.UUID
 data class VideoAsset(
     val id: UUID,
     val objectKey: String,
+    val status: VideoAssetStatus = VideoAssetStatus.READY,
     val contentType: String,
     val fileSizeBytes: Long,
     val durationSeconds: Int,
@@ -14,4 +15,10 @@ data class VideoAsset(
     val height: Int?,
     val thumbnailObjectKey: String?,
     val createdAt: Instant,
+    val uploadedAt: Instant? = createdAt,
 )
+
+enum class VideoAssetStatus {
+    PENDING_UPLOAD,
+    READY,
+}

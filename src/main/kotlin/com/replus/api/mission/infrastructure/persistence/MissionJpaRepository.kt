@@ -34,7 +34,9 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
     ): MissionResponseEntity?
 }
 
-interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID>
+interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID> {
+    fun findByObjectKey(objectKey: String): VideoAssetEntity?
+}
 
 interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID>
 

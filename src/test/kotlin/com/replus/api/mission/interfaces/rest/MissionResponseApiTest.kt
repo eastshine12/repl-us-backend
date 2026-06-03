@@ -1,6 +1,7 @@
 package com.replus.api.mission.interfaces.rest
 
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
+import com.replus.api.mission.domain.repository.VideoAssetRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,6 +41,9 @@ class MissionResponseApiTest {
     @Autowired
     private lateinit var missionReleaseStateRepository: MissionReleaseStateRepository
 
+    @Autowired
+    private lateinit var videoAssetRepository: VideoAssetRepository
+
     @Test
     fun `업로드 URL은 현재 멤버의 object key를 발급한다`() {
         // given
@@ -72,6 +76,10 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.objectKey").value("rooms/$roomId/missions/$missionId/members/$memberId.webm"))
             .andExpect(jsonPath("$.requiredHeaders['Content-Type']").value("video/webm"))
             .andExpect(jsonPath("$.maxFileSizeBytes").value(15000000))
+
+        val videoAsset = videoAssetRepository.findByObjectKey("rooms/$roomId/missions/$missionId/members/$memberId.webm")
+        assertThat(videoAsset).isNotNull
+        assertThat(videoAsset!!.status.name).isEqualTo("PENDING_UPLOAD")
     }
 
     @Test
@@ -87,6 +95,10 @@ class MissionResponseApiTest {
         submitResponse(roomId, missionId, objectKey)
 
         // then
+        val videoAsset = videoAssetRepository.findByObjectKey(objectKey)
+        assertThat(videoAsset).isNotNull
+        assertThat(videoAsset!!.status.name).isEqualTo("READY")
+
         mockMvc.perform(
             get("/api/rooms/$roomId/today")
                 .header("Authorization", "Bearer dev-token-mina"),
@@ -100,6 +112,28 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.responses[0].video.objectKey").value(objectKey))
             .andExpect(jsonPath("$.responses[0].video.durationSeconds").value(3))
             .andExpect(jsonPath("$.responses[0].video.hasAudio").value(true))
+    }
+
+    @Test
+    fun `업로드 URL 발급 없이 리플 제출하면 거절된다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val memberId = today["viewer"]["memberId"].asString()
+        val objectKey = "rooms/$roomId/missions/$missionId/members/$memberId.webm"
+
+        // when
+        val result = mockMvc.perform(
+            post("/api/rooms/$roomId/missions/$missionId/responses")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(missionResponseBody(objectKey)),
+        )
+
+        // then
+        result.andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     @Test
