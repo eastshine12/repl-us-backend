@@ -27,6 +27,9 @@ replus:
     local:
       upload-base-url: ${REPLUS_STORAGE_LOCAL_UPLOAD_BASE_URL:http://localhost:8080/mock-upload}
       playback-base-url: ${REPLUS_STORAGE_LOCAL_PLAYBACK_BASE_URL:http://localhost:8080/mock-playback}
+    object-storage:
+      bucket: ${REPLUS_STORAGE_OBJECT_BUCKET:}
+      public-base-url: ${REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL:http://localhost:8080/mock-playback}
 
 logging:
   level:

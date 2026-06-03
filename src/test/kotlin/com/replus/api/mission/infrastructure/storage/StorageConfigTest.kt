@@ -4,11 +4,16 @@ import com.replus.api.mission.application.port.VideoStoragePort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import java.time.Instant
 
 class StorageConfigTest {
     private val contextRunner = ApplicationContextRunner()
         .withUserConfiguration(StorageConfig::class.java)
+
+    private val objectStorageContextRunner = ApplicationContextRunner()
+        .withUserConfiguration(StorageConfig::class.java, FakeObjectStorageSignerConfig::class.java)
 
     @Test
     fun `local mode uses configured upload and playback base urls`() {
@@ -37,13 +42,68 @@ class StorageConfigTest {
     }
 
     @Test
-    fun `object storage mode fails fast until an adapter is implemented`() {
+    fun `object storage mode uses configured signer and public base url`() {
+        objectStorageContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.public-base-url=https://cdn.example.dev/videos/",
+            )
+            .run { context ->
+                assertThat(context).hasSingleBean(VideoStoragePort::class.java)
+
+                val storage = context.getBean(VideoStoragePort::class.java)
+                val objectKey = "rooms/room-id/missions/mission-id/members/member-id.webm"
+
+                val uploadTarget = storage.createUploadTarget(
+                    objectKey = objectKey,
+                    contentType = "video/webm",
+                    expiresAt = Instant.parse("2026-05-24T09:25:00Z"),
+                    maxFileSizeBytes = 15_000_000,
+                )
+
+                assertThat(uploadTarget.uploadUrl).isEqualTo(
+                    "https://object-storage.example.dev/replus-dev-videos/$objectKey",
+                )
+                assertThat(storage.playbackUrl(objectKey)).isEqualTo("https://cdn.example.dev/videos/$objectKey")
+            }
+    }
+
+    @Test
+    fun `object storage mode fails fast when upload signer is missing`() {
         contextRunner
             .withPropertyValues("replus.storage.mode=object-storage")
             .run { context ->
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
-                    .hasMessageContaining("Object storage adapter is not implemented yet")
+                    .hasMessageContaining("Object storage upload signer is not configured")
+            }
+    }
+
+    @Test
+    fun `object storage mode fails fast when bucket is blank`() {
+        objectStorageContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.public-base-url=https://cdn.example.dev/videos/",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Object storage bucket is required")
+            }
+    }
+
+    @Configuration
+    private class FakeObjectStorageSignerConfig {
+        @Bean
+        fun objectStorageUploadSigner(): ObjectStorageUploadSigner =
+            object : ObjectStorageUploadSigner {
+                override fun presignPutObject(command: PresignPutObjectCommand): PresignedPutObject =
+                    PresignedPutObject(
+                        uploadUrl = "https://object-storage.example.dev/${command.bucket}/${command.objectKey}",
+                        requiredHeaders = mapOf("Content-Type" to command.contentType),
+                    )
             }
     }
 }
