@@ -22,6 +22,11 @@ spring:
 replus:
   web-base-url: ${REPLUS_WEB_BASE_URL:http://localhost:3000}
   seed-dev-data: ${REPLUS_SEED_DEV_DATA:true}
+  storage:
+    mode: ${REPLUS_STORAGE_MODE:local}
+    local:
+      upload-base-url: ${REPLUS_STORAGE_LOCAL_UPLOAD_BASE_URL:http://localhost:8080/mock-upload}
+      playback-base-url: ${REPLUS_STORAGE_LOCAL_PLAYBACK_BASE_URL:http://localhost:8080/mock-playback}
 
 logging:
   level:

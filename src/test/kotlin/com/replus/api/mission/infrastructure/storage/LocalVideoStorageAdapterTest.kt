@@ -5,7 +5,12 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 class LocalVideoStorageAdapterTest {
-    private val storage = LocalVideoStorageAdapter()
+    private val storage = LocalVideoStorageAdapter(
+        LocalStorageProperties(
+            uploadBaseUrl = "https://uploads.example.dev/mock-upload/",
+            playbackBaseUrl = "https://cdn.example.dev/mock-playback/",
+        ),
+    )
 
     @Test
     fun `업로드 대상은 object key와 필수 헤더를 포함한다`() {
@@ -22,7 +27,7 @@ class LocalVideoStorageAdapterTest {
         )
 
         // then
-        assertThat(target.uploadUrl).isEqualTo("http://localhost:8080/mock-upload/$objectKey")
+        assertThat(target.uploadUrl).isEqualTo("https://uploads.example.dev/mock-upload/$objectKey")
         assertThat(target.method).isEqualTo("PUT")
         assertThat(target.objectKey).isEqualTo(objectKey)
         assertThat(target.requiredHeaders).containsEntry("Content-Type", "video/webm")
@@ -39,6 +44,6 @@ class LocalVideoStorageAdapterTest {
         val playbackUrl = storage.playbackUrl(objectKey)
 
         // then
-        assertThat(playbackUrl).isEqualTo("http://localhost:8080/mock-playback/$objectKey")
+        assertThat(playbackUrl).isEqualTo("https://cdn.example.dev/mock-playback/$objectKey")
     }
 }
