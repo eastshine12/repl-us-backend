@@ -4,6 +4,7 @@ import com.replus.api.common.interfaces.rest.dto.RoomMemberResponse
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toSummaryResponse
 import com.replus.api.room.application.InviteLinkResult
+import com.replus.api.room.application.RemoveMemberResult
 import com.replus.api.room.application.RoomDetailResult
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -49,6 +50,12 @@ data class InviteLinkResponse(
     val uses: Int,
 )
 
+data class RemoveMemberResponse(
+    val memberId: UUID,
+    val status: String,
+    val removedAt: Instant,
+)
+
 fun RoomDetailResult.toResponse(): RoomDetailResponse =
     RoomDetailResponse(
         id = room.id,
@@ -84,4 +91,11 @@ fun InviteLinkResult.toResponse(): InviteLinkResponse =
         expiresAt = inviteLink.expiresAt,
         maxUses = inviteLink.maxUses,
         uses = inviteLink.uses,
+    )
+
+fun RemoveMemberResult.toResponse(): RemoveMemberResponse =
+    RemoveMemberResponse(
+        memberId = member.id,
+        status = member.status.name,
+        removedAt = member.removedAt!!,
     )

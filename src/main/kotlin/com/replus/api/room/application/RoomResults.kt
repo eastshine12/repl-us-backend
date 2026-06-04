@@ -20,3 +20,7 @@ data class InviteLinkResult(
     val inviteLink: InviteLink,
     val url: String,
 )
+
+data class RemoveMemberResult(
+    val member: RoomMember,
+)

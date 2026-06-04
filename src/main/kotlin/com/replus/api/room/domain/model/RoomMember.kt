@@ -16,6 +16,12 @@ data class RoomMember(
     fun isActive(): Boolean = status == RoomMemberStatus.ACTIVE
 
     fun isOwner(): Boolean = role == RoomRole.OWNER
+
+    fun remove(removedAt: Instant): RoomMember =
+        copy(
+            status = RoomMemberStatus.REMOVED,
+            removedAt = removedAt,
+        )
 }
 
 enum class RoomRole {

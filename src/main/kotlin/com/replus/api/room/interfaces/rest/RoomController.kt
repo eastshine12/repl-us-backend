@@ -5,6 +5,7 @@ import com.replus.api.room.application.RoomFacade
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -73,5 +74,16 @@ class RoomController(
     ): RoomDetailResponse {
         val user = bearerAuthSupport.requireUser(authorization)
         return roomFacade.joinByInviteCode(user.userId, code).toResponse()
+    }
+
+    @DeleteMapping("/api/rooms/{roomId}/members/{memberId}")
+    fun removeRoomMember(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+        @PathVariable memberId: UUID,
+    ): RemoveMemberResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.removeMember(user.userId, roomId, memberId).toResponse()
     }
 }
