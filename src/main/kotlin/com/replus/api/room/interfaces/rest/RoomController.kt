@@ -71,9 +71,13 @@ class RoomController(
         @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
         authorization: String?,
         @PathVariable code: String,
-    ): RoomDetailResponse {
+    ): ResponseEntity<RoomDetailResponse> {
         val user = bearerAuthSupport.requireUser(authorization)
-        return roomFacade.joinByInviteCode(user.userId, code).toResponse()
+        val result = roomFacade.joinByInviteCode(user.userId, code)
+        return ResponseEntity
+            .ok()
+            .location(URI.create("/api/rooms/${result.room.id}"))
+            .body(result.toResponse())
     }
 
     @DeleteMapping("/api/rooms/{roomId}/members/{memberId}")

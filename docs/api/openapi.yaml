@@ -172,6 +172,12 @@ paths:
       responses:
         "200":
           description: Joined room
+          headers:
+            Location:
+              description: Relative URL of the joined room.
+              schema:
+                type: string
+                example: /api/rooms/550e8400-e29b-41d4-a716-446655440000
           content:
             application/json:
               schema:
