@@ -117,11 +117,11 @@ class RoomFacade(
         val now = clock.instant()
         val inviteLink = inviteLinkRepository.findByCode(code)
             ?: throw CoreException(ErrorType.INVITE_LINK_NOT_FOUND)
-        if (now.isAfter(inviteLink.expiresAt)) {
+        if (inviteLink.isExpired(now)) {
             throw CoreException(ErrorType.INVITE_LINK_EXPIRED)
         }
-        if (!inviteLink.isUsable(now)) {
-            throw CoreException(ErrorType.INVITE_LINK_NOT_FOUND)
+        if (inviteLink.hasReachedUsageLimit()) {
+            throw CoreException(ErrorType.INVITE_LINK_USAGE_LIMIT_REACHED)
         }
 
         val room = roomRepository.getById(inviteLink.roomId)

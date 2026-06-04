@@ -13,7 +13,11 @@ data class InviteLink(
     val createdAt: Instant,
 ) {
     fun isUsable(now: Instant): Boolean =
-        now.isBefore(expiresAt) && (maxUses == null || uses < maxUses)
+        !isExpired(now) && !hasReachedUsageLimit()
+
+    fun isExpired(now: Instant): Boolean = !now.isBefore(expiresAt)
+
+    fun hasReachedUsageLimit(): Boolean = maxUses != null && uses >= maxUses
 
     fun recordUse(): InviteLink = copy(uses = uses + 1)
 }
