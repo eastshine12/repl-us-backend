@@ -4,6 +4,7 @@ import com.replus.api.common.security.BearerAuthSupport
 import com.replus.api.room.application.RoomFacade
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.net.URI
 import java.util.UUID
 
 @RestController
@@ -25,9 +27,12 @@ class RoomController(
         authorization: String?,
         @Valid @RequestBody
         request: CreateRoomRequest,
-    ): RoomDetailResponse {
+    ): ResponseEntity<RoomDetailResponse> {
         val user = bearerAuthSupport.requireUser(authorization)
-        return roomFacade.createRoom(user.userId, request.name).toResponse()
+        val result = roomFacade.createRoom(user.userId, request.name)
+        return ResponseEntity
+            .created(URI.create("/api/rooms/${result.room.id}"))
+            .body(result.toResponse())
     }
 
     @GetMapping("/api/rooms/{roomId}")
