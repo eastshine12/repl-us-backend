@@ -15,6 +15,7 @@ class ObjectStorageVideoStorageAdapter(
 
     init {
         require(bucket.isNotBlank()) { "Object storage bucket is required" }
+        properties.requireValidPublicBaseUrl()
     }
 
     override fun createUploadTarget(

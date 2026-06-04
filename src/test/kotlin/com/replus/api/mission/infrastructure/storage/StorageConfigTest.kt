@@ -174,6 +174,53 @@ class StorageConfigTest {
             }
     }
 
+    @Test
+    fun `object storage mode fails fast when public base url is blank`() {
+        objectStorageContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.public-base-url= ",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Object storage public base URL is required")
+            }
+    }
+
+    @Test
+    fun `object storage client config fails fast when region is blank`() {
+        objectStorageDefaultSignerContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.region= ",
+                "replus.storage.object-storage.endpoint=https://object-storage.example.dev",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Object storage region is required")
+            }
+    }
+
+    @Test
+    fun `object storage client config fails fast when endpoint is not http uri`() {
+        objectStorageDefaultSignerContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.region=auto",
+                "replus.storage.object-storage.endpoint=ftp://object-storage.example.dev",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Object storage endpoint must be a valid HTTP(S) URI")
+            }
+    }
+
     @Configuration
     private class FakeObjectStorageAccessConfig {
         @Bean
