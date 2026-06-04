@@ -164,6 +164,7 @@ paths:
         - name: code
           in: path
           required: true
+          description: Invite codes are stored uppercase; lowercase input is accepted and normalized.
           schema:
             type: string
             minLength: 6

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
+import java.util.Locale
 import java.util.UUID
 
 @Service
@@ -115,7 +116,7 @@ class RoomFacade(
     @Transactional
     fun joinByInviteCode(userId: UUID, code: String): RoomDetailResult {
         val now = clock.instant()
-        val inviteLink = inviteLinkRepository.findByCode(code)
+        val inviteLink = inviteLinkRepository.findByCode(code.toCanonicalInviteCode())
             ?: throw CoreException(ErrorType.INVITE_LINK_NOT_FOUND)
         if (inviteLink.isExpired(now)) {
             throw CoreException(ErrorType.INVITE_LINK_EXPIRED)
@@ -206,6 +207,8 @@ class RoomFacade(
         }
         throw CoreException(ErrorType.INTERNAL_ERROR)
     }
+
+    private fun String.toCanonicalInviteCode(): String = trim().uppercase(Locale.ROOT)
 
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(
