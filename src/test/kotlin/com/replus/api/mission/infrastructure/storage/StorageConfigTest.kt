@@ -18,6 +18,13 @@ class StorageConfigTest {
     private val objectStorageSignerOnlyContextRunner = ApplicationContextRunner()
         .withUserConfiguration(StorageConfig::class.java, FakeObjectStorageSignerConfig::class.java)
 
+    private val objectStorageDefaultVerifierContextRunner = ApplicationContextRunner()
+        .withUserConfiguration(
+            StorageConfig::class.java,
+            ObjectStorageClientConfig::class.java,
+            FakeObjectStorageSignerConfig::class.java,
+        )
+
     @Test
     fun `local mode uses configured upload and playback base urls`() {
         contextRunner
@@ -103,6 +110,24 @@ class StorageConfigTest {
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
                     .hasMessageContaining("Object storage upload verifier is not configured")
+            }
+    }
+
+    @Test
+    fun `object storage mode creates default upload verifier from object storage client config`() {
+        objectStorageDefaultVerifierContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.region=auto",
+                "replus.storage.object-storage.endpoint=https://object-storage.example.dev",
+            )
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context).hasSingleBean(VideoStoragePort::class.java)
+                assertThat(context).hasSingleBean(ObjectStorageUploadVerifier::class.java)
+                assertThat(context.getBean(ObjectStorageUploadVerifier::class.java))
+                    .isInstanceOf(S3ObjectStorageUploadVerifier::class.java)
             }
     }
 

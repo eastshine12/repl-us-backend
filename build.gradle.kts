@@ -29,6 +29,8 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
+    implementation(platform("software.amazon.awssdk:bom:2.45.1"))
+    implementation("software.amazon.awssdk:s3")
 
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")

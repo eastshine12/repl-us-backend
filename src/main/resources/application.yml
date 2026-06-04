@@ -30,6 +30,9 @@ replus:
     object-storage:
       bucket: ${REPLUS_STORAGE_OBJECT_BUCKET:}
       public-base-url: ${REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL:http://localhost:8080/mock-playback}
+      region: ${REPLUS_STORAGE_OBJECT_REGION:auto}
+      endpoint: ${REPLUS_STORAGE_OBJECT_ENDPOINT:}
+      path-style-access-enabled: ${REPLUS_STORAGE_OBJECT_PATH_STYLE_ACCESS_ENABLED:false}
 
 logging:
   level:

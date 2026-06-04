@@ -12,10 +12,11 @@ The product is designed around intimacy rather than broadcast. Rooms are small, 
 - Opaque invite codes that do not expose room IDs.
 - Authenticated invite join flow with a 6-member room limit.
 - Participation state for today's mission, including submitted counts and release readiness.
+- Direct response-video upload flow with object-key reservation and object-storage verification.
 - Foundation storage model for users, rooms, members, invites, missions, responses, video assets, and mission release state.
 - Development bearer-session flow for local testing before social login integration.
 
-This first backend slice focuses on room access, invites, and daily mission policy. Video object storage, comments, reactions, release workers, push notifications, and native-app integration are planned outside this foundation slice.
+This backend is being built in small production slices: room access, invites, daily mission policy, response upload confirmation, and social interactions are added incrementally while release workers, push notifications, and native-app integration remain separate steps.
 
 ## Architecture
 
@@ -48,6 +49,7 @@ Domain models and policies stay framework-free. Application facades own transact
 - Flyway
 - H2 for local development and tests
 - PostgreSQL driver for deployment targets
+- AWS SDK for Java v2 for S3-compatible object storage integration
 - JUnit 5 and AssertJ
 
 ## Local Run
