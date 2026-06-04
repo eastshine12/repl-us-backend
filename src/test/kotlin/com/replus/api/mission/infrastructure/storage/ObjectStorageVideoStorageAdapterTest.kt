@@ -49,6 +49,31 @@ class ObjectStorageVideoStorageAdapterTest {
     }
 
     @Test
+    fun `upload target canonicalizes signed content type header`() {
+        // given
+        signer.nextHeaders = mapOf(
+            "content-type" to "video/webm",
+            "x-amz-checksum-crc32" to "checksum",
+        )
+
+        // when
+        val target = storage.createUploadTarget(
+            objectKey = "rooms/room-id/missions/mission-id/members/member-id.webm",
+            contentType = "video/webm",
+            expiresAt = Instant.parse("2026-05-24T09:25:00Z"),
+            maxFileSizeBytes = 15_000_000,
+        )
+
+        // then
+        assertThat(target.requiredHeaders).containsExactlyInAnyOrderEntriesOf(
+            mapOf(
+                "Content-Type" to "video/webm",
+                "x-amz-checksum-crc32" to "checksum",
+            ),
+        )
+    }
+
+    @Test
     fun `playback and thumbnail urls use public base url`() {
         // given
         val objectKey = "rooms/room-id/missions/mission-id/members/member-id.webm"
@@ -90,12 +115,13 @@ class ObjectStorageVideoStorageAdapterTest {
 
     private class RecordingObjectStorageUploadSigner : ObjectStorageUploadSigner {
         var recordedCommand: PresignPutObjectCommand? = null
+        var nextHeaders: Map<String, String>? = null
 
         override fun presignPutObject(command: PresignPutObjectCommand): PresignedPutObject {
             recordedCommand = command
             return PresignedPutObject(
                 uploadUrl = "https://object-storage.example.dev/signed-upload",
-                requiredHeaders = mapOf(
+                requiredHeaders = nextHeaders ?: mapOf(
                     "Content-Type" to command.contentType,
                     "x-amz-meta-max-file-size" to command.maxFileSizeBytes.toString(),
                 ),

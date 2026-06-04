@@ -1,11 +1,13 @@
 package com.replus.api.mission.infrastructure.storage
 
 import com.replus.api.mission.application.port.VideoStoragePort
+import com.replus.api.common.config.TimeConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
 import java.time.Instant
 
 class StorageConfigTest {
@@ -22,7 +24,16 @@ class StorageConfigTest {
         .withUserConfiguration(
             StorageConfig::class.java,
             ObjectStorageClientConfig::class.java,
+            TimeConfig::class.java,
             FakeObjectStorageSignerConfig::class.java,
+        )
+
+    private val objectStorageDefaultSignerContextRunner = ApplicationContextRunner()
+        .withUserConfiguration(
+            StorageConfig::class.java,
+            ObjectStorageClientConfig::class.java,
+            TimeConfig::class.java,
+            FakeObjectStorageVerifierConfig::class.java,
         )
 
     @Test
@@ -132,6 +143,24 @@ class StorageConfigTest {
     }
 
     @Test
+    fun `object storage mode creates default upload signer from object storage client config`() {
+        objectStorageDefaultSignerContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+                "replus.storage.object-storage.region=auto",
+                "replus.storage.object-storage.endpoint=https://object-storage.example.dev",
+            )
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context).hasSingleBean(VideoStoragePort::class.java)
+                assertThat(context).hasSingleBean(ObjectStorageUploadSigner::class.java)
+                assertThat(context.getBean(ObjectStorageUploadSigner::class.java))
+                    .isInstanceOf(S3ObjectStorageUploadSigner::class.java)
+            }
+    }
+
+    @Test
     fun `object storage mode fails fast when bucket is blank`() {
         objectStorageContextRunner
             .withPropertyValues(
@@ -172,12 +201,28 @@ class StorageConfigTest {
     @Configuration
     private class FakeObjectStorageSignerConfig {
         @Bean
+        @Primary
         fun objectStorageUploadSigner(): ObjectStorageUploadSigner =
             object : ObjectStorageUploadSigner {
                 override fun presignPutObject(command: PresignPutObjectCommand): PresignedPutObject =
                     PresignedPutObject(
                         uploadUrl = "https://object-storage.example.dev/${command.bucket}/${command.objectKey}",
                         requiredHeaders = mapOf("Content-Type" to command.contentType),
+                    )
+            }
+    }
+
+    @Configuration
+    private class FakeObjectStorageVerifierConfig {
+        @Bean
+        @Primary
+        fun objectStorageUploadVerifier(): ObjectStorageUploadVerifier =
+            object : ObjectStorageUploadVerifier {
+                override fun verifyUploadedObject(command: VerifyUploadedObjectCommand): VerifiedUploadedObject =
+                    VerifiedUploadedObject(
+                        exists = true,
+                        contentType = command.expectedContentType,
+                        fileSizeBytes = command.expectedFileSizeBytes,
                     )
             }
     }
