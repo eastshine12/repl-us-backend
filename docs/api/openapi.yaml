@@ -438,6 +438,33 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/rooms/{roomId}/members/me:
+    delete:
+      tags:
+        - Rooms
+      operationId: leaveRoom
+      summary: Leave a room as the current member
+      description: |
+        Active non-owner members can leave the room themselves. Owners cannot
+        leave until ownership transfer is supported.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Current member left the room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoveMemberResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/rooms/{roomId}/members/{memberId}:
     delete:
       tags:

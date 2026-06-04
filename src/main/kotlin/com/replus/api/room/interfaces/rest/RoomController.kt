@@ -80,6 +80,16 @@ class RoomController(
             .body(result.toResponse())
     }
 
+    @DeleteMapping("/api/rooms/{roomId}/members/me")
+    fun leaveRoom(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+    ): RemoveMemberResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.leaveRoom(user.userId, roomId).toResponse()
+    }
+
     @DeleteMapping("/api/rooms/{roomId}/members/{memberId}")
     fun removeRoomMember(
         @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)

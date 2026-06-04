@@ -181,6 +181,22 @@ class RoomFacade(
         )
     }
 
+    @Transactional
+    fun leaveRoom(userId: UUID, roomId: UUID): RemoveMemberResult {
+        val now = clock.instant()
+        roomRepository.getById(roomId)
+
+        val member = roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
+        roomAccessPolicy.requireActiveMember(member)
+        if (member!!.isOwner()) {
+            throw CoreException(ErrorType.CANNOT_REMOVE_OWNER)
+        }
+
+        return RemoveMemberResult(
+            member = roomMemberRepository.save(member.remove(now)),
+        )
+    }
+
     private fun generateUniqueInviteCode(roomId: UUID): String {
         repeat(10) {
             val code = inviteCodeGenerator.generate(roomId)
