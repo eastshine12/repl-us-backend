@@ -34,6 +34,21 @@ replus:
       endpoint: ${REPLUS_STORAGE_OBJECT_ENDPOINT:}
       path-style-access-enabled: ${REPLUS_STORAGE_OBJECT_PATH_STYLE_ACCESS_ENABLED:false}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
 logging:
   level:
     com.replus.api: INFO
