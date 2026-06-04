@@ -13,6 +13,9 @@ class StorageConfigTest {
         .withUserConfiguration(StorageConfig::class.java)
 
     private val objectStorageContextRunner = ApplicationContextRunner()
+        .withUserConfiguration(StorageConfig::class.java, FakeObjectStorageAccessConfig::class.java)
+
+    private val objectStorageSignerOnlyContextRunner = ApplicationContextRunner()
         .withUserConfiguration(StorageConfig::class.java, FakeObjectStorageSignerConfig::class.java)
 
     @Test
@@ -66,6 +69,15 @@ class StorageConfigTest {
                     "https://object-storage.example.dev/replus-dev-videos/$objectKey",
                 )
                 assertThat(storage.playbackUrl(objectKey)).isEqualTo("https://cdn.example.dev/videos/$objectKey")
+
+                val verification = storage.verifyUploadedObject(
+                    objectKey = objectKey,
+                    expectedContentType = "video/webm",
+                    expectedFileSizeBytes = 842120,
+                )
+                assertThat(verification.exists).isTrue
+                assertThat(verification.contentType).isEqualTo("video/webm")
+                assertThat(verification.fileSizeBytes).isEqualTo(842120)
             }
     }
 
@@ -81,6 +93,20 @@ class StorageConfigTest {
     }
 
     @Test
+    fun `object storage mode fails fast when upload verifier is missing`() {
+        objectStorageSignerOnlyContextRunner
+            .withPropertyValues(
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.bucket=replus-dev-videos",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Object storage upload verifier is not configured")
+            }
+    }
+
+    @Test
     fun `object storage mode fails fast when bucket is blank`() {
         objectStorageContextRunner
             .withPropertyValues(
@@ -91,6 +117,30 @@ class StorageConfigTest {
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
                     .hasMessageContaining("Object storage bucket is required")
+            }
+    }
+
+    @Configuration
+    private class FakeObjectStorageAccessConfig {
+        @Bean
+        fun objectStorageUploadSigner(): ObjectStorageUploadSigner =
+            object : ObjectStorageUploadSigner {
+                override fun presignPutObject(command: PresignPutObjectCommand): PresignedPutObject =
+                    PresignedPutObject(
+                        uploadUrl = "https://object-storage.example.dev/${command.bucket}/${command.objectKey}",
+                        requiredHeaders = mapOf("Content-Type" to command.contentType),
+                    )
+            }
+
+        @Bean
+        fun objectStorageUploadVerifier(): ObjectStorageUploadVerifier =
+            object : ObjectStorageUploadVerifier {
+                override fun verifyUploadedObject(command: VerifyUploadedObjectCommand): VerifiedUploadedObject =
+                    VerifiedUploadedObject(
+                        exists = true,
+                        contentType = command.expectedContentType,
+                        fileSizeBytes = command.expectedFileSizeBytes,
+                    )
             }
     }
 

@@ -4,6 +4,7 @@ import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import com.replus.api.mission.application.port.VideoStoragePort
+import com.replus.api.mission.application.port.VideoUploadVerification
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
@@ -255,6 +256,14 @@ class MissionFacade(
         if (!videoAsset.hasSameMetadata(command)) {
             throw CoreException(ErrorType.INVALID_REQUEST)
         }
+        val uploadVerification = videoStoragePort.verifyUploadedObject(
+            objectKey = command.objectKey,
+            expectedContentType = command.contentType,
+            expectedFileSizeBytes = command.fileSizeBytes,
+        )
+        if (!uploadVerification.matches(command)) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
 
         return videoAssetRepository.save(
             videoAsset.copy(
@@ -271,6 +280,11 @@ class MissionFacade(
             hasAudio == command.hasAudio &&
             width == command.width &&
             height == command.height
+
+    private fun VideoUploadVerification.matches(command: MissionResponseCreateCommand): Boolean =
+        exists &&
+            contentType == command.contentType &&
+            fileSizeBytes == command.fileSizeBytes
 
     private fun defaultMission(roomId: UUID, missionDate: LocalDate): Mission =
         Mission(

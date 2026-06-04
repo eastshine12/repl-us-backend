@@ -6,12 +6,14 @@ import java.time.Instant
 
 class ObjectStorageVideoStorageAdapterTest {
     private val signer = RecordingObjectStorageUploadSigner()
+    private val verifier = RecordingObjectStorageUploadVerifier()
     private val storage = ObjectStorageVideoStorageAdapter(
         properties = ObjectStorageProperties(
             bucket = "replus-dev-videos",
             publicBaseUrl = "https://cdn.example.dev/videos/",
         ),
         uploadSigner = signer,
+        uploadVerifier = verifier,
     )
 
     @Test
@@ -60,6 +62,32 @@ class ObjectStorageVideoStorageAdapterTest {
         assertThat(thumbnailUrl).isEqualTo("https://cdn.example.dev/videos/$objectKey")
     }
 
+    @Test
+    fun `upload verification is delegated to object storage verifier`() {
+        // given
+        val objectKey = "rooms/room-id/missions/mission-id/members/member-id.webm"
+
+        // when
+        val verification = storage.verifyUploadedObject(
+            objectKey = objectKey,
+            expectedContentType = "video/webm",
+            expectedFileSizeBytes = 842120,
+        )
+
+        // then
+        assertThat(verifier.recordedCommand).isEqualTo(
+            VerifyUploadedObjectCommand(
+                bucket = "replus-dev-videos",
+                objectKey = objectKey,
+                expectedContentType = "video/webm",
+                expectedFileSizeBytes = 842120,
+            ),
+        )
+        assertThat(verification.exists).isTrue
+        assertThat(verification.contentType).isEqualTo("video/webm")
+        assertThat(verification.fileSizeBytes).isEqualTo(842120)
+    }
+
     private class RecordingObjectStorageUploadSigner : ObjectStorageUploadSigner {
         var recordedCommand: PresignPutObjectCommand? = null
 
@@ -71,6 +99,19 @@ class ObjectStorageVideoStorageAdapterTest {
                     "Content-Type" to command.contentType,
                     "x-amz-meta-max-file-size" to command.maxFileSizeBytes.toString(),
                 ),
+            )
+        }
+    }
+
+    private class RecordingObjectStorageUploadVerifier : ObjectStorageUploadVerifier {
+        var recordedCommand: VerifyUploadedObjectCommand? = null
+
+        override fun verifyUploadedObject(command: VerifyUploadedObjectCommand): VerifiedUploadedObject {
+            recordedCommand = command
+            return VerifiedUploadedObject(
+                exists = true,
+                contentType = command.expectedContentType,
+                fileSizeBytes = command.expectedFileSizeBytes,
             )
         }
     }

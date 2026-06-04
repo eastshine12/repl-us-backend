@@ -46,4 +46,22 @@ class LocalVideoStorageAdapterTest {
         // then
         assertThat(playbackUrl).isEqualTo("https://cdn.example.dev/mock-playback/$objectKey")
     }
+
+    @Test
+    fun `local 검증은 기대한 업로드 메타데이터를 통과시킨다`() {
+        // given
+        val objectKey = "rooms/room-id/missions/mission-id/members/member-id.webm"
+
+        // when
+        val verification = storage.verifyUploadedObject(
+            objectKey = objectKey,
+            expectedContentType = "video/webm",
+            expectedFileSizeBytes = 842120,
+        )
+
+        // then
+        assertThat(verification.exists).isTrue
+        assertThat(verification.contentType).isEqualTo("video/webm")
+        assertThat(verification.fileSizeBytes).isEqualTo(842120)
+    }
 }
