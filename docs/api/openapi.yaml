@@ -889,6 +889,7 @@ components:
           format: date
           nullable: true
         today:
+          description: Null until today's mission has been generated for this room.
           allOf:
             - $ref: "#/components/schemas/RoomTodaySummary"
           nullable: true
@@ -959,6 +960,7 @@ components:
           type: string
           format: date-time
         today:
+          description: Null until today's mission has been generated for this room.
           allOf:
             - $ref: "#/components/schemas/RoomTodaySummary"
           nullable: true
