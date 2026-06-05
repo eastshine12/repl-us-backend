@@ -120,7 +120,8 @@ class RoomFacade(
     @Transactional
     fun joinByInviteCode(userId: UUID, code: String): RoomDetailResult {
         val now = clock.instant()
-        val inviteLink = inviteLinkRepository.findByCode(code.toCanonicalInviteCode())
+        val inviteCode = code.toValidatedInviteCode()
+        val inviteLink = inviteLinkRepository.findByCode(inviteCode)
             ?: throw CoreException(ErrorType.INVITE_LINK_NOT_FOUND)
         if (inviteLink.isExpired(now)) {
             throw CoreException(ErrorType.INVITE_LINK_EXPIRED)
@@ -212,11 +213,20 @@ class RoomFacade(
         throw CoreException(ErrorType.INTERNAL_ERROR)
     }
 
-    private fun String.toCanonicalInviteCode(): String = trim().uppercase(Locale.ROOT)
+    private fun String.toValidatedInviteCode(): String =
+        trim().uppercase(Locale.ROOT).also {
+            if (!INVITE_CODE_PATTERN.matches(it)) {
+                throw CoreException(ErrorType.INVALID_REQUEST, "Invite code format is invalid.")
+            }
+        }
 
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(
             inviteLink = this,
             url = "${webBaseUrl.trimEnd('/')}/join/$code",
         )
+
+    private companion object {
+        private val INVITE_CODE_PATTERN = Regex("^[A-HJ-NP-Z2-9]{6,32}$")
+    }
 }

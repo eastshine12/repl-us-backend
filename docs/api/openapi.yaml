@@ -169,6 +169,7 @@ paths:
             type: string
             minLength: 6
             maxLength: 32
+            pattern: "^[A-HJ-NP-Za-hj-np-z2-9]{6,32}$"
           example: R3S9KQ
       responses:
         "200":
