@@ -888,6 +888,36 @@ components:
           type: string
           format: date
           nullable: true
+        today:
+          allOf:
+            - $ref: "#/components/schemas/RoomTodaySummary"
+          nullable: true
+
+    RoomTodaySummary:
+      type: object
+      required:
+        - missionId
+        - missionDate
+        - prompt
+        - category
+        - myResponseStatus
+      properties:
+        missionId:
+          type: string
+          format: uuid
+        missionDate:
+          type: string
+          format: date
+        prompt:
+          type: string
+        category:
+          $ref: "#/components/schemas/MissionCategory"
+        myResponseStatus:
+          $ref: "#/components/schemas/RoomTodayResponseStatus"
+        myResponseId:
+          type: string
+          format: uuid
+          nullable: true
 
     RoomDetail:
       type: object
@@ -1616,6 +1646,12 @@ components:
       enum:
         - ACTIVE
         - DELETED
+
+    RoomTodayResponseStatus:
+      type: string
+      enum:
+        - NOT_SUBMITTED
+        - SUBMITTED
 
     ResponseVisibility:
       type: string
