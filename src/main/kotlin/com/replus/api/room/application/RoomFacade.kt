@@ -3,6 +3,8 @@ package com.replus.api.room.application
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
+import com.replus.api.mission.domain.repository.MissionRepository
+import com.replus.api.mission.domain.repository.MissionResponseRepository
 import com.replus.api.room.domain.model.InviteLink
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 import java.util.UUID
 
@@ -28,6 +32,8 @@ class RoomFacade(
     private val roomRepository: RoomRepository,
     private val roomMemberRepository: RoomMemberRepository,
     private val inviteLinkRepository: InviteLinkRepository,
+    private val missionRepository: MissionRepository,
+    private val missionResponseRepository: MissionResponseRepository,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val roomCapacityPolicy: RoomCapacityPolicy,
     private val inviteCodeGenerator: InviteCodeGenerator,
@@ -76,10 +82,20 @@ class RoomFacade(
                 user = userRepository.getById(member.userId),
             )
         }
+        val todayMission = missionRepository.findByRoomIdAndMissionDate(roomId, today())
+        val myTodayResponse = todayMission?.let {
+            missionResponseRepository.findActiveByMissionIdAndMemberId(it.id, currentMember!!.id)
+        }
         return RoomDetailResult(
             room = room,
             currentMember = currentMember!!,
             members = members,
+            today = todayMission?.let {
+                RoomTodaySummaryResult(
+                    mission = it,
+                    myResponseId = myTodayResponse?.id,
+                )
+            },
         )
     }
 
@@ -219,6 +235,9 @@ class RoomFacade(
                 throw CoreException(ErrorType.INVALID_REQUEST, "Invite code format is invalid.")
             }
         }
+
+    private fun today(): LocalDate =
+        LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")))
 
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(

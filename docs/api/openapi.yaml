@@ -958,6 +958,10 @@ components:
         createdAt:
           type: string
           format: date-time
+        today:
+          allOf:
+            - $ref: "#/components/schemas/RoomTodaySummary"
+          nullable: true
 
     RoomMember:
       type: object

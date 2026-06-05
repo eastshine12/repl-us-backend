@@ -1,6 +1,8 @@
 package com.replus.api.room.interfaces.rest
 
 import com.replus.api.common.interfaces.rest.dto.RoomMemberResponse
+import com.replus.api.common.interfaces.rest.dto.RoomTodayResponseStatus
+import com.replus.api.common.interfaces.rest.dto.RoomTodaySummaryResponse
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toSummaryResponse
 import com.replus.api.room.application.InviteLinkResult
@@ -41,6 +43,7 @@ data class RoomDetailResponse(
     val currentUserRole: String,
     val members: List<RoomMemberResponse>,
     val createdAt: Instant,
+    val today: RoomTodaySummaryResponse?,
 )
 
 data class InviteLinkResponse(
@@ -83,6 +86,20 @@ fun RoomDetailResult.toResponse(): RoomDetailResponse =
             )
         },
         createdAt = room.createdAt,
+        today = today?.let {
+            RoomTodaySummaryResponse(
+                missionId = it.mission.id,
+                missionDate = it.mission.missionDate,
+                prompt = it.mission.prompt,
+                category = it.mission.category,
+                myResponseStatus = if (it.myResponseId == null) {
+                    RoomTodayResponseStatus.NOT_SUBMITTED
+                } else {
+                    RoomTodayResponseStatus.SUBMITTED
+                },
+                myResponseId = it.myResponseId,
+            )
+        },
     )
 
 fun InviteLinkResult.toResponse(): InviteLinkResponse =
