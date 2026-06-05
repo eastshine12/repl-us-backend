@@ -89,14 +89,18 @@ class RoomFacade(
         roomId: UUID,
         expiresInHours: Long,
         maxUses: Int?,
+        rotate: Boolean,
     ): InviteLinkResult {
         val now = clock.instant()
         val member = roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
         roomAccessPolicy.requireActiveMember(member)
 
         val existing = inviteLinkRepository.findLatestUsableByRoomId(roomId, now)
-        if (existing != null) {
+        if (existing != null && !rotate) {
             return existing.toResult()
+        }
+        if (existing != null) {
+            inviteLinkRepository.save(existing.expire(now))
         }
 
         val inviteLink = inviteLinkRepository.save(

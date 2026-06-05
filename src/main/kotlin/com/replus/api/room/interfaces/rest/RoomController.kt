@@ -62,6 +62,7 @@ class RoomController(
                 roomId = roomId,
                 expiresInHours = request?.expiresInHours ?: 168,
                 maxUses = request?.maxUses,
+                rotate = request?.rotate ?: false,
             )
             .toResponse()
     }

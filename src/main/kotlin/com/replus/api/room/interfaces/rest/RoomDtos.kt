@@ -27,6 +27,8 @@ data class CreateInviteLinkRequest(
     @field:Min(1)
     @field:Max(5)
     val maxUses: Int? = null,
+
+    val rotate: Boolean = false,
 )
 
 data class RoomDetailResponse(
