@@ -95,6 +95,10 @@ curl -X POST http://localhost:8080/api/auth/guest \
 
 Policy tests cover active room membership, owner-only mission edits, edit lock after the first active response, room capacity, and opaque invite code generation.
 
+## Operations
+
+Deployment notes and production safety checks live in [docs/operations/deployment.md](docs/operations/deployment.md).
+
 ## API Documentation
 
 The current API contract lives in:
