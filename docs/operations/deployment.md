@@ -76,6 +76,62 @@ After the blueprint creates the service, set every `sync: false` value in the
 Render Dashboard before expecting the service to become healthy. Missing values
 are intentionally caught by the production guard during startup.
 
+## Render First Deploy Checklist
+
+Use this checklist for the first Render smoke deployment.
+
+1. Open Render and create a new Blueprint from the GitHub repository.
+2. Select the repository and confirm Render detected `render.yaml`.
+3. Keep the generated web service on the free plan for the first smoke deploy.
+4. Create or attach a PostgreSQL database.
+5. Convert the database connection string to JDBC format before setting
+   `SPRING_DATASOURCE_URL`.
+6. Set every `sync: false` environment variable in the Render Dashboard.
+7. Trigger the first deploy.
+8. Watch the build log until the Docker image build completes.
+9. Watch the runtime log for production guard failures.
+10. Check the health endpoints after the service starts.
+
+Minimum values for a backend-only smoke deploy:
+
+```text
+SPRING_DATASOURCE_URL=<postgresql-jdbc-url>
+SPRING_DATASOURCE_USERNAME=<database-user>
+SPRING_DATASOURCE_PASSWORD=<database-password>
+REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
+REPLUS_WEB_BASE_URL=<https-frontend-origin>
+```
+
+For the very first backend-only deploy, object storage can be deferred by
+temporarily overriding the blueprint value:
+
+```text
+REPLUS_STORAGE_MODE=local
+```
+
+Use this only for smoke testing health checks and non-upload API flows. Switch
+back to object storage before validating response-video upload flows.
+
+For upload-flow validation, keep `REPLUS_STORAGE_MODE=object-storage` and set:
+
+```text
+REPLUS_STORAGE_OBJECT_BUCKET=<bucket-name>
+REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL=<public-playback-base-url>
+REPLUS_STORAGE_OBJECT_REGION=<region-or-provider-region>
+REPLUS_STORAGE_OBJECT_ENDPOINT=<provider-endpoint-if-required>
+REPLUS_STORAGE_OBJECT_PATH_STYLE_ACCESS_ENABLED=<true-or-false>
+```
+
+Common first-deploy failures:
+
+- `SPRING_DATASOURCE_URL is required`: set the JDBC datasource URL.
+- `Prod profile must not use an H2 datasource`: replace the local H2 URL.
+- `replus.web.cors.allowed-origins is required`: set explicit frontend origins.
+- Readiness is down with a `db` component failure: check database network access
+  and credentials.
+- Readiness is up but upload flows fail: switch from local smoke storage to a
+  configured object storage provider.
+
 ## Required Production Variables
 
 Set the production profile explicitly:
