@@ -2,11 +2,12 @@ package com.replus.api.mission.infrastructure.storage
 
 import com.replus.api.mission.application.port.VideoStoragePort
 import com.replus.api.mission.application.port.VideoUploadTarget
-import org.springframework.stereotype.Component
+import com.replus.api.mission.application.port.VideoUploadVerification
 import java.time.Instant
 
-@Component
-class LocalVideoStorageAdapter : VideoStoragePort {
+class LocalVideoStorageAdapter(
+    private val properties: LocalStorageProperties = LocalStorageProperties(),
+) : VideoStoragePort {
     override fun createUploadTarget(
         objectKey: String,
         contentType: String,
@@ -14,7 +15,7 @@ class LocalVideoStorageAdapter : VideoStoragePort {
         maxFileSizeBytes: Long,
     ): VideoUploadTarget =
         VideoUploadTarget(
-            uploadUrl = "http://localhost:8080/mock-upload/$objectKey",
+            uploadUrl = appendObjectKey(properties.uploadBaseUrl, objectKey),
             method = "PUT",
             objectKey = objectKey,
             requiredHeaders = mapOf("Content-Type" to contentType),
@@ -23,8 +24,22 @@ class LocalVideoStorageAdapter : VideoStoragePort {
         )
 
     override fun playbackUrl(objectKey: String): String =
-        "http://localhost:8080/mock-playback/$objectKey"
+        appendObjectKey(properties.playbackBaseUrl, objectKey)
 
     override fun thumbnailUrl(objectKey: String): String =
-        "http://localhost:8080/mock-playback/$objectKey"
+        appendObjectKey(properties.playbackBaseUrl, objectKey)
+
+    override fun verifyUploadedObject(
+        objectKey: String,
+        expectedContentType: String,
+        expectedFileSizeBytes: Long,
+    ): VideoUploadVerification =
+        VideoUploadVerification(
+            exists = true,
+            contentType = expectedContentType,
+            fileSizeBytes = expectedFileSizeBytes,
+        )
+
+    private fun appendObjectKey(baseUrl: String, objectKey: String): String =
+        "${baseUrl.trimEnd('/')}/${objectKey.trimStart('/')}"
 }

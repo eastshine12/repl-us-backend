@@ -36,6 +36,10 @@ enum class ErrorType(
         ErrorCode.INVITE_LINK_EXPIRED,
         "The invite link has expired.",
     ),
+    INVITE_LINK_USAGE_LIMIT_REACHED(
+        ErrorCode.INVITE_LINK_USAGE_LIMIT_REACHED,
+        "The invite link has reached its usage limit.",
+    ),
     MISSION_EDIT_LIMIT_REACHED(
         ErrorCode.MISSION_EDIT_LIMIT_REACHED,
         "Today's mission has already been edited.",
