@@ -42,12 +42,43 @@ class RoomAccessPolicyTest {
             .doesNotThrowAnyException()
     }
 
-    private fun roomMember(status: RoomMemberStatus): RoomMember =
+    @Test
+    fun `방장이 아니면 방장 권한이 거절된다`() {
+        // given
+        val member = roomMember(role = RoomRole.MEMBER)
+
+        // when
+        val action = { policy.requireOwner(member) }
+
+        // then
+        assertThatThrownBy { action() }
+            .isInstanceOf(CoreException::class.java)
+            .extracting("errorType")
+            .isEqualTo(ErrorType.ROOM_OWNER_REQUIRED)
+    }
+
+    @Test
+    fun `방장이면 방장 권한이 허용된다`() {
+        // given
+        val member = roomMember(role = RoomRole.OWNER)
+
+        // when
+        val action = { policy.requireOwner(member) }
+
+        // then
+        assertThatCode { action() }
+            .doesNotThrowAnyException()
+    }
+
+    private fun roomMember(
+        status: RoomMemberStatus = RoomMemberStatus.ACTIVE,
+        role: RoomRole = RoomRole.MEMBER,
+    ): RoomMember =
         RoomMember(
             id = UUID.randomUUID(),
             roomId = UUID.randomUUID(),
             userId = UUID.randomUUID(),
-            role = RoomRole.MEMBER,
+            role = role,
             status = status,
             slotIndex = 0,
             joinedAt = Instant.parse("2026-05-24T00:01:00Z"),

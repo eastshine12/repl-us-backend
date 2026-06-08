@@ -92,6 +92,7 @@ class GlobalExceptionHandler {
             -> HttpStatus.BAD_REQUEST
             ErrorType.ROOM_FULL,
             ErrorType.INVITE_LINK_EXPIRED,
+            ErrorType.INVITE_LINK_USAGE_LIMIT_REACHED,
             ErrorType.MISSION_EDIT_LIMIT_REACHED,
             ErrorType.MISSION_ALREADY_HAS_RESPONSE,
             ErrorType.RESPONSE_ALREADY_EXISTS,

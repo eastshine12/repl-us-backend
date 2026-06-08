@@ -9,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -131,6 +132,90 @@ class ResponseInteractionApiTest {
         assertThat(reactionSummary[0]["reactedByViewer"].booleanValue()).isTrue()
     }
 
+    @Test
+    fun `공개된 리플의 댓글 목록을 작성 순서로 조회한다`() {
+        // given
+        val fixture = releasedFixture()
+        val friendResponseId = fixture.friendResponseId
+
+        createComment(fixture.roomId, friendResponseId, token = "dev-token-mina", body = "첫 댓글")
+        createComment(fixture.roomId, friendResponseId, token = "dev-token-ara", body = "두 번째 댓글")
+
+        // when
+        val result = mockMvc.perform(
+            get("/api/rooms/${fixture.roomId}/responses/$friendResponseId/comments")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isOk)
+            .andExpect(jsonPath("$.comments[0].body").value("첫 댓글"))
+            .andExpect(jsonPath("$.comments[0].author.displayName").value("민아"))
+            .andExpect(jsonPath("$.comments[1].body").value("두 번째 댓글"))
+            .andExpect(jsonPath("$.comments[1].author.displayName").value("아라"))
+    }
+
+    @Test
+    fun `리플 삭제 후 재제출하면 이전 댓글과 리액션은 새 리플에 보이지 않는다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val response = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        val responseId = response["id"].asString()
+
+        mockMvc.perform(
+            post("/api/rooms/$roomId/responses/$responseId/reactions")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"HEART"}"""),
+        ).andExpect(status().isCreated)
+
+        createComment(roomId, responseId, token = "dev-token-mina", body = "예전 댓글")
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        ).andExpect(status().isOk)
+
+        // when
+        val resubmitted = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+
+        // then
+        assertThat(resubmitted["id"].asString()).isEqualTo(responseId)
+
+        val resubmittedToday = getTodayByRoomId(roomId)
+        val resubmittedResponse = findResponse(resubmittedToday, responseId)
+        assertThat(resubmittedResponse["reactionSummary"].size()).isZero()
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/responses/$responseId/comments")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.comments").isEmpty)
+    }
+
+    @Test
+    fun `아직 잠긴 친구 리플의 댓글 목록은 조회할 수 없다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val friendResponse = submitResponseForToken(roomId, missionId, token = "dev-token-joon")
+        val friendResponseId = friendResponse["id"].asString()
+
+        // when
+        val result = mockMvc.perform(
+            get("/api/rooms/$roomId/responses/$friendResponseId/comments")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("RESPONSE_NOT_VISIBLE"))
+    }
+
     private fun releasedFixture(): ReleasedFixture {
         val today = getToday()
         val roomId = today["room"]["id"].asString()
@@ -190,6 +275,15 @@ class ResponseInteractionApiTest {
         return (0 until responses.size())
             .map { responses[it] }
             .first { it["id"].asString() == responseId }
+    }
+
+    private fun createComment(roomId: String, responseId: String, token: String, body: String) {
+        mockMvc.perform(
+            post("/api/rooms/$roomId/responses/$responseId/comments")
+                .header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"body":"$body"}"""),
+        ).andExpect(status().isCreated)
     }
 
     private fun submitResponseForToken(roomId: String, missionId: String, token: String) =

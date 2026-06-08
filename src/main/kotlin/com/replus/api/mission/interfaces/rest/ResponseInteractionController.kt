@@ -4,6 +4,7 @@ import com.replus.api.common.security.BearerAuthSupport
 import com.replus.api.mission.application.ResponseInteractionFacade
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -52,6 +53,21 @@ class ResponseInteractionController(
             roomId = roomId,
             responseId = responseId,
             body = request.body,
+        ).toResponse()
+    }
+
+    @GetMapping("/api/rooms/{roomId}/responses/{responseId}/comments")
+    fun listComments(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+        @PathVariable responseId: UUID,
+    ): CommentListResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return responseInteractionFacade.listComments(
+            userId = user.userId,
+            roomId = roomId,
+            responseId = responseId,
         ).toResponse()
     }
 }

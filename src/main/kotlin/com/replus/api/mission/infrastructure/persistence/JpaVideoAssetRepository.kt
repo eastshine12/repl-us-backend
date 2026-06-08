@@ -12,6 +12,9 @@ class JpaVideoAssetRepository(
     override fun save(videoAsset: VideoAsset): VideoAsset =
         videoAssetJpaRepository.save(VideoAssetEntity.from(videoAsset)).toDomain()
 
+    override fun findByObjectKey(objectKey: String): VideoAsset? =
+        videoAssetJpaRepository.findByObjectKey(objectKey)?.toDomain()
+
     override fun findAllByIds(ids: Collection<UUID>): List<VideoAsset> =
         videoAssetJpaRepository.findAllById(ids).map { it.toDomain() }
 }
