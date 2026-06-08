@@ -198,6 +198,8 @@ paths:
       operationId: getToday
       summary: Get today's mission, participation, and visible response previews
       description: |
+        The first successful call for a room day generates the mission; later calls
+        for the same room day return the same mission.
         Friend response media is omitted until every active member has submitted
         and the shared 60-second opening delay has completed. The frontend may
         still show member names, completion counts, and locked frames.
@@ -223,7 +225,9 @@ paths:
         - Missions
       operationId: updateMission
       summary: Update today's mission once per room day
-      description: Only the room owner may use the single daily edit, and only before any active response exists.
+      description: |
+        Only the room owner may use the single daily edit, and only before any active response exists.
+        The updated mission is reflected by today's room state and room summary responses.
       parameters:
         - $ref: "#/components/parameters/RoomId"
         - $ref: "#/components/parameters/MissionId"
@@ -888,6 +892,37 @@ components:
           type: string
           format: date
           nullable: true
+        today:
+          description: Null until today's mission has been generated for this room.
+          allOf:
+            - $ref: "#/components/schemas/RoomTodaySummary"
+          nullable: true
+
+    RoomTodaySummary:
+      type: object
+      required:
+        - missionId
+        - missionDate
+        - prompt
+        - category
+        - myResponseStatus
+      properties:
+        missionId:
+          type: string
+          format: uuid
+        missionDate:
+          type: string
+          format: date
+        prompt:
+          type: string
+        category:
+          $ref: "#/components/schemas/MissionCategory"
+        myResponseStatus:
+          $ref: "#/components/schemas/RoomTodayResponseStatus"
+        myResponseId:
+          type: string
+          format: uuid
+          nullable: true
 
     RoomDetail:
       type: object
@@ -928,6 +963,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        today:
+          description: Null until today's mission has been generated for this room.
+          allOf:
+            - $ref: "#/components/schemas/RoomTodaySummary"
+          nullable: true
 
     RoomMember:
       type: object
@@ -1053,6 +1093,9 @@ components:
           maximum: 1
         canEdit:
           type: boolean
+          description: |
+            True only for the room owner before the single daily edit is used
+            and before any active response exists.
         editedByMemberId:
           type: string
           format: uuid
@@ -1616,6 +1659,12 @@ components:
       enum:
         - ACTIVE
         - DELETED
+
+    RoomTodayResponseStatus:
+      type: string
+      enum:
+        - NOT_SUBMITTED
+        - SUBMITTED
 
     ResponseVisibility:
       type: string

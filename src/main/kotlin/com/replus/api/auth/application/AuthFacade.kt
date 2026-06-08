@@ -4,12 +4,15 @@ import com.replus.api.auth.domain.model.User
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.security.DevSessionStore
 import com.replus.api.mission.domain.repository.MissionRepository
+import com.replus.api.mission.domain.repository.MissionResponseRepository
 import com.replus.api.room.domain.repository.RoomMemberRepository
 import com.replus.api.room.domain.repository.RoomRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 @Service
@@ -18,6 +21,7 @@ class AuthFacade(
     private val roomRepository: RoomRepository,
     private val roomMemberRepository: RoomMemberRepository,
     private val missionRepository: MissionRepository,
+    private val missionResponseRepository: MissionResponseRepository,
     private val devSessionStore: DevSessionStore,
     private val clock: Clock,
 ) {
@@ -43,15 +47,30 @@ class AuthFacade(
     @Transactional(readOnly = true)
     fun getCurrentUser(userId: UUID): CurrentUserResult {
         val user = userRepository.getById(userId)
+        val today = today()
         val rooms = roomMemberRepository.findActiveByUserId(userId).map { member ->
             val room = roomRepository.getById(member.roomId)
+            val latestMission = missionRepository.findLatestByRoomId(room.id)
+            val todayMission = missionRepository.findByRoomIdAndMissionDate(room.id, today)
+            val myTodayResponse = todayMission?.let {
+                missionResponseRepository.findActiveByMissionIdAndMemberId(it.id, member.id)
+            }
             RoomSummaryResult(
                 room = room,
                 memberCount = roomMemberRepository.countActiveByRoomId(room.id),
                 currentMember = member,
-                lastMissionDate = missionRepository.findLatestByRoomId(room.id)?.missionDate,
+                lastMissionDate = latestMission?.missionDate,
+                today = todayMission?.let {
+                    RoomTodaySummaryResult(
+                        mission = it,
+                        myResponseId = myTodayResponse?.id,
+                    )
+                },
             )
         }
         return CurrentUserResult(user = user, rooms = rooms)
     }
+
+    private fun today(): LocalDate =
+        LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")))
 }

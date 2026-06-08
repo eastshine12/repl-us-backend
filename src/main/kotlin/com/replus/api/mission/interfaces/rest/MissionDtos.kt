@@ -2,6 +2,7 @@ package com.replus.api.mission.interfaces.rest
 
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.mission.application.CreatedMissionResponseResult
+import com.replus.api.mission.application.DeletedMissionResponseResult
 import com.replus.api.mission.application.MissionResponseCreateCommand
 import com.replus.api.mission.application.MissionResponseUploadMetadata
 import com.replus.api.mission.application.MissionResponseUploadUrlResult
@@ -143,6 +144,13 @@ data class MissionResponseCreatedResponse(
     val deletedAt: Instant?,
 )
 
+data class DeleteResponseResultResponse(
+    val responseId: UUID,
+    val status: String,
+    val frameStatus: String,
+    val deletedAt: Instant,
+)
+
 data class VideoAssetResponse(
     val objectKey: String,
     val playbackUrl: String,
@@ -232,6 +240,14 @@ fun CreatedMissionResponseResult.toResponse(videoStoragePort: VideoStoragePort):
         reactionSummary = emptyList(),
         createdAt = response.createdAt,
         deletedAt = response.deletedAt,
+    )
+
+fun DeletedMissionResponseResult.toResponse(): DeleteResponseResultResponse =
+    DeleteResponseResultResponse(
+        responseId = responseId,
+        status = status.name,
+        frameStatus = frameStatus.name,
+        deletedAt = deletedAt,
     )
 
 fun VideoAsset.toResponse(videoStoragePort: VideoStoragePort): VideoAssetResponse =
