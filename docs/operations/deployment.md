@@ -50,6 +50,32 @@ docker run --rm -p 8080:8080 \
   repl-us-backend:local
 ```
 
+## Render Blueprint
+
+The repository includes a `render.yaml` blueprint for an initial Render web
+service. It uses the Dockerfile, points the health check at
+`/actuator/health/readiness`, and keeps secrets out of git with `sync: false`
+environment variables. The blueprint starts on the free web service plan to
+avoid surprise spend during the first smoke deployment. Review the plan before
+serving real users.
+
+Before applying the blueprint, prepare:
+
+- A PostgreSQL database.
+- A JDBC-formatted datasource URL for Spring, such as
+  `<postgresql-jdbc-url>`.
+- Explicit HTTPS frontend origins for `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
+- Object storage values for response-video uploads.
+
+Render PostgreSQL connection strings are commonly provided as
+`postgresql://...`. The Spring datasource URL must be JDBC-formatted:
+`jdbc:postgresql://...`. Convert the value before setting
+`SPRING_DATASOURCE_URL`.
+
+After the blueprint creates the service, set every `sync: false` value in the
+Render Dashboard before expecting the service to become healthy. Missing values
+are intentionally caught by the production guard during startup.
+
 ## Required Production Variables
 
 Set the production profile explicitly:
