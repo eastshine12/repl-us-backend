@@ -10,6 +10,10 @@ interface MissionResponseRepository {
 
     fun findActiveByMissionId(missionId: UUID): List<MissionResponse>
 
+    fun findActiveByMissionIds(missionIds: Collection<UUID>): List<MissionResponse>
+
+    fun findAllByMissionIds(missionIds: Collection<UUID>): List<MissionResponse>
+
     fun findActiveByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponse?
 
     fun findByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponse?
