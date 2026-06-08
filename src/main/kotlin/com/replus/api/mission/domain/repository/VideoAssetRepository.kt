@@ -6,5 +6,7 @@ import java.util.UUID
 interface VideoAssetRepository {
     fun save(videoAsset: VideoAsset): VideoAsset
 
+    fun findByObjectKey(objectKey: String): VideoAsset?
+
     fun findAllByIds(ids: Collection<UUID>): List<VideoAsset>
 }

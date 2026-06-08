@@ -13,6 +13,12 @@ interface VideoStoragePort {
     fun playbackUrl(objectKey: String): String
 
     fun thumbnailUrl(objectKey: String): String
+
+    fun verifyUploadedObject(
+        objectKey: String,
+        expectedContentType: String,
+        expectedFileSizeBytes: Long,
+    ): VideoUploadVerification
 }
 
 data class VideoUploadTarget(
@@ -22,4 +28,10 @@ data class VideoUploadTarget(
     val requiredHeaders: Map<String, String>,
     val expiresAt: Instant,
     val maxFileSizeBytes: Long,
+)
+
+data class VideoUploadVerification(
+    val exists: Boolean,
+    val contentType: String?,
+    val fileSizeBytes: Long?,
 )

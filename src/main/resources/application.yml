@@ -22,6 +22,14 @@ spring:
 replus:
   web-base-url: ${REPLUS_WEB_BASE_URL:http://localhost:3000}
   seed-dev-data: ${REPLUS_SEED_DEV_DATA:true}
+  mission:
+    lifecycle:
+      zone: ${REPLUS_MISSION_LIFECYCLE_ZONE:Asia/Seoul}
+      scheduler:
+        enabled: ${REPLUS_MISSION_LIFECYCLE_SCHEDULER_ENABLED:false}
+        fail-incomplete-cron: ${REPLUS_MISSION_LIFECYCLE_FAIL_INCOMPLETE_CRON:0 5 0 * * *}
+        release-due-fixed-delay: ${REPLUS_MISSION_LIFECYCLE_RELEASE_DUE_FIXED_DELAY:30000}
+        release-due-initial-delay: ${REPLUS_MISSION_LIFECYCLE_RELEASE_DUE_INITIAL_DELAY:30000}
   storage:
     mode: ${REPLUS_STORAGE_MODE:local}
     local:
@@ -30,6 +38,24 @@ replus:
     object-storage:
       bucket: ${REPLUS_STORAGE_OBJECT_BUCKET:}
       public-base-url: ${REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL:http://localhost:8080/mock-playback}
+      region: ${REPLUS_STORAGE_OBJECT_REGION:auto}
+      endpoint: ${REPLUS_STORAGE_OBJECT_ENDPOINT:}
+      path-style-access-enabled: ${REPLUS_STORAGE_OBJECT_PATH_STYLE_ACCESS_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:
