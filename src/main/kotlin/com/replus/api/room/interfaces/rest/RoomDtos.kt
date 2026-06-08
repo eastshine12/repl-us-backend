@@ -5,14 +5,18 @@ import com.replus.api.common.interfaces.rest.dto.RoomTodayResponseStatus
 import com.replus.api.common.interfaces.rest.dto.RoomTodaySummaryResponse
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toSummaryResponse
+import com.replus.api.mission.application.port.VideoStoragePort
+import com.replus.api.room.application.GrowthRewardsResult
 import com.replus.api.room.application.InviteLinkResult
 import com.replus.api.room.application.RemoveMemberResult
 import com.replus.api.room.application.RoomDetailResult
+import com.replus.api.room.application.RoomWallResult
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 data class CreateRoomRequest(
@@ -59,6 +63,98 @@ data class RemoveMemberResponse(
     val memberId: UUID,
     val status: String,
     val removedAt: Instant,
+)
+
+data class GrowthRewardsResponse(
+    val roomId: UUID,
+    val rewards: List<GrowthRewardResponse>,
+)
+
+data class GrowthRewardResponse(
+    val id: UUID,
+    val roomId: UUID,
+    val type: String,
+    val category: String,
+    val title: String,
+    val description: String,
+    val status: String,
+    val progress: Int,
+    val threshold: Int,
+    val unlockedAt: Instant?,
+    val assetKey: String?,
+)
+
+data class RoomWallResponse(
+    val roomId: UUID,
+    val viewer: WallViewerResponse,
+    val viewport: WallViewportResponse,
+    val frames: List<WallFrameResponse>,
+)
+
+data class WallViewerResponse(
+    val memberId: UUID,
+    val role: String,
+    val hasSubmittedToday: Boolean,
+    val todayResponseId: UUID?,
+)
+
+data class WallViewportResponse(
+    val width: Int,
+    val height: Int,
+    val minZoom: Double,
+    val maxZoom: Double,
+)
+
+data class WallFrameResponse(
+    val id: UUID,
+    val roomId: UUID,
+    val missionId: UUID,
+    val missionDate: LocalDate,
+    val slotIndex: Int,
+    val category: String,
+    val status: String,
+    val position: WallFramePositionResponse,
+    val response: WallMissionResponsePreviewResponse?,
+)
+
+data class WallFramePositionResponse(
+    val x: Double,
+    val y: Double,
+    val width: Double,
+    val height: Double,
+    val rotation: Double,
+)
+
+data class WallMissionResponsePreviewResponse(
+    val id: UUID,
+    val missionId: UUID,
+    val memberId: UUID,
+    val author: UserSummaryResponse,
+    val isMine: Boolean,
+    val status: String,
+    val visibility: String,
+    val video: WallVideoAssetResponse?,
+    val reactionSummary: List<WallReactionSummaryItemResponse>,
+    val createdAt: Instant,
+    val deletedAt: Instant?,
+)
+
+data class WallVideoAssetResponse(
+    val objectKey: String,
+    val playbackUrl: String,
+    val thumbnailUrl: String?,
+    val contentType: String,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    val width: Int?,
+    val height: Int?,
+    val fileSizeBytes: Long?,
+)
+
+data class WallReactionSummaryItemResponse(
+    val type: String,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 fun RoomDetailResult.toResponse(): RoomDetailResponse =
@@ -117,4 +213,98 @@ fun RemoveMemberResult.toResponse(): RemoveMemberResponse =
         memberId = member.id,
         status = member.status.name,
         removedAt = member.removedAt!!,
+    )
+
+fun GrowthRewardsResult.toResponse(): GrowthRewardsResponse =
+    GrowthRewardsResponse(
+        roomId = roomId,
+        rewards = rewards.map {
+            GrowthRewardResponse(
+                id = it.id,
+                roomId = it.roomId,
+                type = it.type.name,
+                category = it.category.name,
+                title = it.title,
+                description = it.description,
+                status = it.status.name,
+                progress = it.progress,
+                threshold = it.threshold,
+                unlockedAt = it.unlockedAt,
+                assetKey = it.assetKey,
+            )
+        },
+    )
+
+fun RoomWallResult.toResponse(videoStoragePort: VideoStoragePort): RoomWallResponse =
+    RoomWallResponse(
+        roomId = roomId,
+        viewer = WallViewerResponse(
+            memberId = viewer.memberId,
+            role = viewer.role.name,
+            hasSubmittedToday = viewer.hasSubmittedToday,
+            todayResponseId = viewer.todayResponseId,
+        ),
+        viewport = WallViewportResponse(
+            width = viewport.width,
+            height = viewport.height,
+            minZoom = viewport.minZoom,
+            maxZoom = viewport.maxZoom,
+        ),
+        frames = frames.map { frame ->
+            WallFrameResponse(
+                id = frame.id,
+                roomId = frame.roomId,
+                missionId = frame.mission.id,
+                missionDate = frame.mission.missionDate,
+                slotIndex = frame.slotIndex,
+                category = frame.mission.category.name,
+                status = frame.status.name,
+                position = WallFramePositionResponse(
+                    x = frame.position.x,
+                    y = frame.position.y,
+                    width = frame.position.width,
+                    height = frame.position.height,
+                    rotation = frame.position.rotation,
+                ),
+                response = frame.response?.let { preview ->
+                    WallMissionResponsePreviewResponse(
+                        id = preview.response.id,
+                        missionId = preview.response.missionId,
+                        memberId = preview.response.memberId,
+                        author = UserSummaryResponse(
+                            id = preview.author.id,
+                            displayName = preview.author.displayName,
+                            avatarUrl = preview.author.avatarUrl,
+                        ),
+                        isMine = preview.isMine,
+                        status = preview.response.status.name,
+                        visibility = preview.visibility.name,
+                        video = preview.videoAsset?.let { videoAsset ->
+                            WallVideoAssetResponse(
+                                objectKey = videoAsset.objectKey,
+                                playbackUrl = videoStoragePort.playbackUrl(videoAsset.objectKey),
+                                thumbnailUrl = videoAsset.thumbnailObjectKey?.let {
+                                    videoStoragePort.thumbnailUrl(it)
+                                },
+                                contentType = videoAsset.contentType,
+                                durationSeconds = videoAsset.durationSeconds,
+                                hasAudio = videoAsset.hasAudio,
+                                width = videoAsset.width,
+                                height = videoAsset.height,
+                                fileSizeBytes = videoAsset.fileSizeBytes,
+                            )
+                        },
+                        reactionSummary = preview.reactionSummary.map { summary ->
+                            WallReactionSummaryItemResponse(
+                                type = summary.type.name,
+                                count = summary.count,
+                                reactedByViewer = summary.reactedByViewer,
+                            )
+                        },
+                        createdAt = preview.response.createdAt,
+                        deletedAt = preview.response.deletedAt,
+                    )
+                },
+            )
+        },
     )

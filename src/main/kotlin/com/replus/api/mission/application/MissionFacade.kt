@@ -20,6 +20,7 @@ import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.ResponseCommentRepository
 import com.replus.api.mission.domain.repository.ResponseReactionRepository
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.policy.RoomAccessPolicy
@@ -44,6 +45,7 @@ class MissionFacade(
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
     private val responseReactionRepository: ResponseReactionRepository,
+    private val responseCommentRepository: ResponseCommentRepository,
     private val videoStoragePort: VideoStoragePort,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
@@ -247,6 +249,8 @@ class MissionFacade(
         )
 
         val now = clock.instant()
+        responseReactionRepository.deleteAllByResponseId(response.id)
+        responseCommentRepository.softDeleteByResponseId(response.id, now)
         val deletedResponse = missionResponseRepository.save(response.delete(now))
         return DeletedMissionResponseResult(
             responseId = deletedResponse.id,

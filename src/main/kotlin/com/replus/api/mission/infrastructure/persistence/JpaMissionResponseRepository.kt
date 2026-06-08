@@ -10,6 +10,9 @@ import java.util.UUID
 class JpaMissionResponseRepository(
     private val missionResponseJpaRepository: MissionResponseJpaRepository,
 ) : MissionResponseRepository {
+    override fun countActiveByRoomId(roomId: UUID): Int =
+        missionResponseJpaRepository.countByRoomIdAndStatus(roomId, MissionResponseStatus.ACTIVE)
+
     override fun countActiveByMissionId(missionId: UUID): Int =
         missionResponseJpaRepository.countByMissionIdAndStatus(missionId, MissionResponseStatus.ACTIVE)
 
@@ -17,6 +20,22 @@ class JpaMissionResponseRepository(
         missionResponseJpaRepository
             .findAllByMissionIdAndStatus(missionId, MissionResponseStatus.ACTIVE)
             .map { it.toDomain() }
+
+    override fun findActiveByMissionIds(missionIds: Collection<UUID>): List<MissionResponse> =
+        if (missionIds.isEmpty()) {
+            emptyList()
+        } else {
+            missionResponseJpaRepository
+                .findAllByMissionIdInAndStatus(missionIds, MissionResponseStatus.ACTIVE)
+                .map { it.toDomain() }
+        }
+
+    override fun findAllByMissionIds(missionIds: Collection<UUID>): List<MissionResponse> =
+        if (missionIds.isEmpty()) {
+            emptyList()
+        } else {
+            missionResponseJpaRepository.findAllByMissionIdIn(missionIds).map { it.toDomain() }
+        }
 
     override fun findActiveByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponse? =
         missionResponseJpaRepository
