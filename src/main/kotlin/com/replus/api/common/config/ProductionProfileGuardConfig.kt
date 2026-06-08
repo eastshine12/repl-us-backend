@@ -27,10 +27,24 @@ class ProductionProfileGuardConfig {
             require(!environment.getBooleanProperty("spring.h2.console.enabled", defaultValue = false)) {
                 "spring.h2.console.enabled must be false when the prod profile is active"
             }
+            val corsAllowedOrigins = environment.getCommaSeparatedProperty("replus.web.cors.allowed-origins")
+            require(corsAllowedOrigins.isNotEmpty()) {
+                "replus.web.cors.allowed-origins is required when the prod profile is active"
+            }
+            require(corsAllowedOrigins.none { it == "*" || it.contains("*") }) {
+                "Prod profile must not allow wildcard CORS origins"
+            }
         }
 
     private fun Environment.getBooleanProperty(name: String, defaultValue: Boolean): Boolean =
         getProperty(name, Boolean::class.java, defaultValue)
+
+    private fun Environment.getCommaSeparatedProperty(name: String): List<String> =
+        getProperty(name)
+            .orEmpty()
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
 
     private companion object {
         const val PROD_PROFILE = "prod"

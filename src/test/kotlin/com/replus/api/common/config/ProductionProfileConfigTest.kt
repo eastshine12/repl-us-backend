@@ -16,6 +16,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins=https://app.example.test",
             )
             .run { context ->
                 assertThat(context).hasNotFailed()
@@ -66,6 +67,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins=https://app.example.test",
                 "replus.seed-dev-data=true",
             )
             .run { context ->
@@ -81,12 +83,45 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins=https://app.example.test",
                 "spring.h2.console.enabled=true",
             )
             .run { context ->
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
                     .hasMessageContaining("spring.h2.console.enabled must be false when the prod profile is active")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when cors allowed origins are blank`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins= ",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining(
+                        "replus.web.cors.allowed-origins is required when the prod profile is active",
+                    )
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when cors allowed origins include wildcard`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins=https://app.example.test,*",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Prod profile must not allow wildcard CORS origins")
             }
     }
 }
