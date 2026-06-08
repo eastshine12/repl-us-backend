@@ -1,6 +1,7 @@
 package com.replus.api.room.interfaces.rest
 
 import com.replus.api.common.security.BearerAuthSupport
+import com.replus.api.mission.application.port.VideoStoragePort
 import com.replus.api.room.application.RoomFacade
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -11,15 +12,18 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
+import java.time.LocalDate
 import java.util.UUID
 
 @RestController
 class RoomController(
     private val roomFacade: RoomFacade,
     private val bearerAuthSupport: BearerAuthSupport,
+    private val videoStoragePort: VideoStoragePort,
 ) {
     @PostMapping("/api/rooms")
     @ResponseStatus(HttpStatus.CREATED)
@@ -62,6 +66,7 @@ class RoomController(
                 roomId = roomId,
                 expiresInHours = request?.expiresInHours ?: 168,
                 maxUses = request?.maxUses,
+                rotate = request?.rotate ?: false,
             )
             .toResponse()
     }
@@ -71,9 +76,23 @@ class RoomController(
         @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
         authorization: String?,
         @PathVariable code: String,
-    ): RoomDetailResponse {
+    ): ResponseEntity<RoomDetailResponse> {
         val user = bearerAuthSupport.requireUser(authorization)
-        return roomFacade.joinByInviteCode(user.userId, code).toResponse()
+        val result = roomFacade.joinByInviteCode(user.userId, code)
+        return ResponseEntity
+            .ok()
+            .location(URI.create("/api/rooms/${result.room.id}"))
+            .body(result.toResponse())
+    }
+
+    @DeleteMapping("/api/rooms/{roomId}/members/me")
+    fun leaveRoom(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+    ): RemoveMemberResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.leaveRoom(user.userId, roomId).toResponse()
     }
 
     @DeleteMapping("/api/rooms/{roomId}/members/{memberId}")
@@ -85,5 +104,32 @@ class RoomController(
     ): RemoveMemberResponse {
         val user = bearerAuthSupport.requireUser(authorization)
         return roomFacade.removeMember(user.userId, roomId, memberId).toResponse()
+    }
+
+    @GetMapping("/api/rooms/{roomId}/growth-rewards")
+    fun getGrowthRewards(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+    ): GrowthRewardsResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.getGrowthRewards(user.userId, roomId).toResponse()
+    }
+
+    @GetMapping("/api/rooms/{roomId}/wall")
+    fun getRoomWall(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+        @RequestParam(required = false) from: LocalDate?,
+        @RequestParam(required = false) to: LocalDate?,
+    ): RoomWallResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.getRoomWall(
+            userId = user.userId,
+            roomId = roomId,
+            from = from,
+            to = to,
+        ).toResponse(videoStoragePort)
     }
 }
