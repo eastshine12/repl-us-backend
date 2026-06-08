@@ -1,3 +1,10 @@
+databases:
+  - name: repl-us-postgres
+    databaseName: replus
+    user: replus
+    plan: free
+    ipAllowList: []
+
 services:
   - type: web
     name: repl-us-backend
@@ -8,12 +15,10 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SPRING_DATASOURCE_URL
-        sync: false
-      - key: SPRING_DATASOURCE_USERNAME
-        sync: false
-      - key: SPRING_DATASOURCE_PASSWORD
-        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: repl-us-postgres
+          property: connectionString
       - key: REPLUS_WEB_CORS_ALLOWED_ORIGINS
         sync: false
       - key: REPLUS_WEB_BASE_URL
