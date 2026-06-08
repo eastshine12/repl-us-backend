@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.replus.api.common.config.DatabaseUrlEnvironmentPostProcessor

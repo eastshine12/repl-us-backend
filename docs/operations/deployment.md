@@ -53,24 +53,20 @@ docker run --rm -p 8080:8080 \
 ## Render Blueprint
 
 The repository includes a `render.yaml` blueprint for an initial Render web
-service. It uses the Dockerfile, points the health check at
-`/actuator/health/readiness`, and keeps secrets out of git with `sync: false`
-environment variables. The blueprint starts on the free web service plan to
-avoid surprise spend during the first smoke deployment. Review the plan before
+service and PostgreSQL database. The web service uses the Dockerfile, points the
+health check at `/actuator/health/readiness`, and keeps secrets out of git with
+`sync: false` environment variables. The blueprint starts on free plans to avoid
+surprise spend during the first smoke deployment. Review the plans before
 serving real users.
 
 Before applying the blueprint, prepare:
 
-- A PostgreSQL database.
-- A JDBC-formatted datasource URL for Spring, such as
-  `<postgresql-jdbc-url>`.
 - Explicit HTTPS frontend origins for `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
 - Object storage values for response-video uploads.
 
-Render PostgreSQL connection strings are commonly provided as
-`postgresql://...`. The Spring datasource URL must be JDBC-formatted:
-`jdbc:postgresql://...`. Convert the value before setting
-`SPRING_DATASOURCE_URL`.
+The blueprint injects the Render PostgreSQL connection string as `DATABASE_URL`.
+The application converts Render's `postgresql://...` value into Spring
+datasource properties during startup.
 
 After the blueprint creates the service, set every `sync: false` value in the
 Render Dashboard before expecting the service to become healthy. Missing values
@@ -82,22 +78,19 @@ Use this checklist for the first Render smoke deployment.
 
 1. Open Render and create a new Blueprint from the GitHub repository.
 2. Select the repository and confirm Render detected `render.yaml`.
-3. Keep the generated web service on the free plan for the first smoke deploy.
-4. Create or attach a PostgreSQL database.
-5. Convert the database connection string to JDBC format before setting
-   `SPRING_DATASOURCE_URL`.
-6. Set every `sync: false` environment variable in the Render Dashboard.
-7. Trigger the first deploy.
-8. Watch the build log until the Docker image build completes.
-9. Watch the runtime log for production guard failures.
-10. Check the health endpoints after the service starts.
+3. Keep the generated web service and PostgreSQL database on the free plans for
+   the first smoke deploy.
+4. Confirm the web service has a `DATABASE_URL` env var populated from the
+   generated `repl-us-postgres` database.
+5. Set every `sync: false` environment variable in the Render Dashboard.
+6. Trigger the first deploy.
+7. Watch the build log until the Docker image build completes.
+8. Watch the runtime log for production guard failures.
+9. Check the health endpoints after the service starts.
 
 Minimum values for a backend-only smoke deploy:
 
 ```text
-SPRING_DATASOURCE_URL=<postgresql-jdbc-url>
-SPRING_DATASOURCE_USERNAME=<database-user>
-SPRING_DATASOURCE_PASSWORD=<database-password>
 REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 REPLUS_WEB_BASE_URL=<https-frontend-origin>
 ```
@@ -124,7 +117,8 @@ REPLUS_STORAGE_OBJECT_PATH_STYLE_ACCESS_ENABLED=<true-or-false>
 
 Common first-deploy failures:
 
-- `SPRING_DATASOURCE_URL is required`: set the JDBC datasource URL.
+- `SPRING_DATASOURCE_URL is required`: confirm `DATABASE_URL` is present on the
+  web service, or set the Spring datasource values manually.
 - `Prod profile must not use an H2 datasource`: replace the local H2 URL.
 - `replus.web.cors.allowed-origins is required`: set explicit frontend origins.
 - Readiness is down with a `db` component failure: check database network access
@@ -143,10 +137,17 @@ SPRING_PROFILES_ACTIVE=prod
 Required for production startup:
 
 ```text
+DATABASE_URL=<postgresql-connection-string>
+REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
+```
+
+`DATABASE_URL` is the preferred Render path. Non-Render deployments can set the
+Spring datasource values directly instead:
+
+```text
 SPRING_DATASOURCE_URL=<postgresql-jdbc-url>
 SPRING_DATASOURCE_USERNAME=<database-user>
 SPRING_DATASOURCE_PASSWORD=<database-password>
-REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 ```
 
 The `prod` profile fails fast when:
@@ -207,7 +208,8 @@ Do not use them for a production deployment.
 
 - CI is passing on the commit being deployed.
 - `SPRING_PROFILES_ACTIVE=prod` is set.
-- PostgreSQL credentials are configured in the secret manager.
+- `DATABASE_URL` is populated from the Render PostgreSQL database, or explicit
+  Spring datasource credentials are configured in the secret manager.
 - CORS origins contain only explicit HTTPS frontend origins.
 - Object storage bucket, region, endpoint, and playback base URL are configured.
 - No `.env` file, private key, token, or real endpoint has been committed.
