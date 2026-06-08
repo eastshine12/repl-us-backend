@@ -225,7 +225,9 @@ paths:
         - Missions
       operationId: updateMission
       summary: Update today's mission once per room day
-      description: Only the room owner may use the single daily edit, and only before any active response exists.
+      description: |
+        Only the room owner may use the single daily edit, and only before any active response exists.
+        The updated mission is reflected by today's room state and room summary responses.
       parameters:
         - $ref: "#/components/parameters/RoomId"
         - $ref: "#/components/parameters/MissionId"
@@ -1091,6 +1093,9 @@ components:
           maximum: 1
         canEdit:
           type: boolean
+          description: |
+            True only for the room owner before the single daily edit is used
+            and before any active response exists.
         editedByMemberId:
           type: string
           format: uuid
