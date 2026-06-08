@@ -2,6 +2,7 @@ package com.replus.api.mission.application
 
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.VideoAsset
@@ -78,6 +79,34 @@ class MissionLifecycleServiceTest {
         assertThat(missionReleaseStateRepository.findByMissionId(cutoffDayMission.id)).isNull()
     }
 
+    @Test
+    fun `release 예정 시간이 지난 mission을 공개 처리한다`() {
+        val dueMission = createMission(LocalDate.parse("2026-05-24"))
+        val futureMission = createMission(LocalDate.parse("2026-05-25"))
+        val failedMission = createMission(LocalDate.parse("2026-05-26"))
+        saveReleaseState(
+            missionId = dueMission.id,
+            releaseScheduledAt = Instant.parse("2026-05-24T09:15:00Z"),
+        )
+        saveReleaseState(
+            missionId = futureMission.id,
+            releaseScheduledAt = Instant.parse("2026-05-24T09:25:00Z"),
+        )
+        saveReleaseState(
+            missionId = failedMission.id,
+            releaseScheduledAt = Instant.parse("2026-05-24T09:15:00Z"),
+            failedAt = Instant.parse("2026-05-24T09:16:00Z"),
+        )
+
+        val result = missionLifecycleService.releaseDueMissions(Instant.parse("2026-05-24T09:20:00Z"))
+
+        assertThat(result.releasedMissionIds).containsExactly(dueMission.id)
+        assertThat(missionReleaseStateRepository.findByMissionId(dueMission.id)!!.releasedAt)
+            .isEqualTo(Instant.parse("2026-05-24T09:20:00Z"))
+        assertThat(missionReleaseStateRepository.findByMissionId(futureMission.id)!!.releasedAt).isNull()
+        assertThat(missionReleaseStateRepository.findByMissionId(failedMission.id)!!.releasedAt).isNull()
+    }
+
     private fun createMission(missionDate: LocalDate): Mission =
         missionRepository.save(
             Mission(
@@ -121,6 +150,21 @@ class MissionLifecycleServiceTest {
             ),
         )
     }
+
+    private fun saveReleaseState(
+        missionId: UUID,
+        releaseScheduledAt: Instant,
+        failedAt: Instant? = null,
+    ): MissionReleaseState =
+        missionReleaseStateRepository.save(
+            MissionReleaseState(
+                missionId = missionId,
+                allSubmittedAt = Instant.parse("2026-05-24T09:14:00Z"),
+                releaseScheduledAt = releaseScheduledAt,
+                releasedAt = null,
+                failedAt = failedAt,
+            ),
+        )
 
     private companion object {
         val ROOM_ID: UUID = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")

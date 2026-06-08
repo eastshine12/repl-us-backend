@@ -13,6 +13,7 @@ class MissionLifecycleWorkerTest {
         val useCase = RecordingMissionLifecycleFailureUseCase()
         val worker = MissionLifecycleWorker(
             missionLifecycleFailureUseCase = useCase,
+            missionLifecycleReleaseUseCase = RecordingMissionLifecycleReleaseUseCase(),
             clock = Clock.fixed(Instant.parse("2026-05-24T15:30:00Z"), ZoneOffset.UTC),
             zoneIdValue = "Asia/Seoul",
         )
@@ -22,12 +23,36 @@ class MissionLifecycleWorkerTest {
         assertThat(useCase.requestedCutoffDates).containsExactly(LocalDate.parse("2026-05-25"))
     }
 
+    @Test
+    fun `worker는 서비스에 release 예정 시간이 지난 mission 공개 처리를 요청한다`() {
+        val useCase = RecordingMissionLifecycleReleaseUseCase()
+        val worker = MissionLifecycleWorker(
+            missionLifecycleFailureUseCase = RecordingMissionLifecycleFailureUseCase(),
+            missionLifecycleReleaseUseCase = useCase,
+            clock = Clock.fixed(Instant.parse("2026-05-24T09:20:00Z"), ZoneOffset.UTC),
+            zoneIdValue = "Asia/Seoul",
+        )
+
+        worker.releaseDueMissions()
+
+        assertThat(useCase.requestedDueInstants).containsExactly(Instant.parse("2026-05-24T09:20:00Z"))
+    }
+
     private class RecordingMissionLifecycleFailureUseCase : MissionLifecycleFailureUseCase {
         val requestedCutoffDates = mutableListOf<LocalDate>()
 
         override fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult {
             requestedCutoffDates += cutoffDate
             return MissionLifecycleFailureResult(failedMissionIds = emptyList())
+        }
+    }
+
+    private class RecordingMissionLifecycleReleaseUseCase : MissionLifecycleReleaseUseCase {
+        val requestedDueInstants = mutableListOf<Instant>()
+
+        override fun releaseDueMissions(dueAt: Instant): MissionLifecycleReleaseResult {
+            requestedDueInstants += dueAt
+            return MissionLifecycleReleaseResult(releasedMissionIds = emptyList())
         }
     }
 }

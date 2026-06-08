@@ -32,7 +32,28 @@ class MissionLifecycleScheduler(
         zone = "\${replus.mission.lifecycle.zone:Asia/Seoul}",
     )
     fun failIncompleteMissionsBeforeToday() {
-        val result = worker.failIncompleteMissionsBeforeToday()
-        log.info("mission_lifecycle_failed_incomplete count={}", result.failedMissionIds.size)
+        runSafely("fail_incomplete") {
+            val result = worker.failIncompleteMissionsBeforeToday()
+            log.info("mission_lifecycle_failed_incomplete count={}", result.failedMissionIds.size)
+        }
+    }
+
+    @Scheduled(
+        fixedDelayString = "\${replus.mission.lifecycle.scheduler.release-due-fixed-delay:30000}",
+        initialDelayString = "\${replus.mission.lifecycle.scheduler.release-due-initial-delay:30000}",
+    )
+    fun releaseDueMissions() {
+        runSafely("release_due") {
+            val result = worker.releaseDueMissions()
+            log.info("mission_lifecycle_released_due count={}", result.releasedMissionIds.size)
+        }
+    }
+
+    private fun runSafely(job: String, action: () -> Unit) {
+        try {
+            action()
+        } catch (exception: Exception) {
+            log.error("mission_lifecycle_scheduler_failed job={}", job, exception)
+        }
     }
 }
