@@ -3,6 +3,7 @@ package com.replus.api.mission.infrastructure.persistence
 import com.replus.api.mission.domain.model.ResponseComment
 import com.replus.api.mission.domain.repository.ResponseCommentRepository
 import org.springframework.stereotype.Repository
+import java.time.Instant
 import java.util.UUID
 
 @Repository
@@ -16,4 +17,8 @@ class JpaResponseCommentRepository(
         responseCommentJpaRepository
             .findAllByResponseIdAndDeletedAtIsNullOrderByCreatedAtAsc(responseId)
             .map { it.toDomain() }
+
+    override fun softDeleteByResponseId(responseId: UUID, deletedAt: Instant) {
+        responseCommentJpaRepository.softDeleteByResponseId(responseId, deletedAt)
+    }
 }

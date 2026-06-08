@@ -112,6 +112,6 @@ class InviteLinkExpirationPolicyApiTest {
     private companion object {
         const val ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         const val MINA_MEMBER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
-        const val EXPIRED_CODE = "EXPIRED1"
+        const val EXPIRED_CODE = "EXP2RD"
     }
 }
