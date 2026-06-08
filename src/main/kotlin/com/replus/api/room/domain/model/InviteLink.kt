@@ -19,5 +19,7 @@ data class InviteLink(
 
     fun hasReachedUsageLimit(): Boolean = maxUses != null && uses >= maxUses
 
+    fun expire(now: Instant): InviteLink = copy(expiresAt = now)
+
     fun recordUse(): InviteLink = copy(uses = uses + 1)
 }
