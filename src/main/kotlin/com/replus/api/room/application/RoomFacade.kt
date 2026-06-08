@@ -4,8 +4,11 @@ import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.model.InviteLink
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
@@ -36,6 +39,8 @@ class RoomFacade(
     private val inviteLinkRepository: InviteLinkRepository,
     private val missionRepository: MissionRepository,
     private val missionResponseRepository: MissionResponseRepository,
+    private val missionReleaseStateRepository: MissionReleaseStateRepository,
+    private val videoAssetRepository: VideoAssetRepository,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val roomCapacityPolicy: RoomCapacityPolicy,
     private val inviteCodeGenerator: InviteCodeGenerator,
@@ -253,6 +258,87 @@ class RoomFacade(
         )
     }
 
+    @Transactional
+    fun getRoomWall(
+        userId: UUID,
+        roomId: UUID,
+        from: LocalDate?,
+        to: LocalDate?,
+    ): RoomWallResult {
+        roomRepository.getById(roomId)
+        val currentMember = roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
+        roomAccessPolicy.requireActiveMember(currentMember)
+
+        val missions = if (from == null && to == null) {
+            missionRepository.findAllByRoomId(roomId)
+        } else {
+            missionRepository.findAllByRoomIdAndMissionDateBetween(
+                roomId = roomId,
+                from = from ?: MIN_WALL_DATE,
+                to = to ?: MAX_WALL_DATE,
+            )
+        }
+        val missionsById = missions.associateBy { it.id }
+        val missionIds = missions.map { it.id }
+        val responses = missionResponseRepository.findActiveByMissionIds(missionIds)
+        val membersById = roomMemberRepository.findActiveByRoomId(roomId).associateBy { it.id }
+        val usersByMemberId = membersById.mapValues { userRepository.getById(it.value.userId) }
+        val videoAssetsById = videoAssetRepository
+            .findAllByIds(responses.map { it.videoAssetId })
+            .associateBy { it.id }
+        val releaseStatesByMissionId = missionReleaseStateRepository
+            .findAllByMissionIds(missionIds)
+            .associateBy { it.missionId }
+            .mapValues { releaseIfDue(it.value) }
+        val todayMission = missionRepository.findByRoomIdAndMissionDate(roomId, today())
+        val todayResponse = todayMission?.let {
+            missionResponseRepository.findActiveByMissionIdAndMemberId(it.id, currentMember!!.id)
+        }
+
+        return RoomWallResult(
+            roomId = roomId,
+            viewer = WallViewerResult(
+                memberId = currentMember!!.id,
+                role = currentMember.role,
+                hasSubmittedToday = todayResponse != null,
+                todayResponseId = todayResponse?.id,
+            ),
+            viewport = WallViewportResult(width = 1600, height = 1200, minZoom = 0.45, maxZoom = 2.4),
+            frames = responses
+                .mapNotNull { response ->
+                    val mission = missionsById[response.missionId] ?: return@mapNotNull null
+                    val responseMember = membersById[response.memberId] ?: return@mapNotNull null
+                    val isMine = response.memberId == currentMember.id
+                    val canView = isMine || releaseStatesByMissionId[mission.id]?.releasedAt?.let {
+                        !clock.instant().isBefore(it)
+                    } == true
+                    WallFrameResult(
+                        id = frameId(mission.id, response.memberId),
+                        roomId = roomId,
+                        mission = mission,
+                        slotIndex = responseMember.slotIndex,
+                        status = if (canView) WallFrameStatus.READY else WallFrameStatus.LOCKED,
+                        position = framePosition(
+                            missionIndex = missions.indexOfFirst { it.id == mission.id },
+                            slotIndex = responseMember.slotIndex,
+                        ),
+                        response = if (canView) {
+                            WallResponsePreviewResult(
+                                response = response,
+                                author = usersByMemberId.getValue(response.memberId),
+                                isMine = isMine,
+                                visibility = WallResponseVisibility.VISIBLE,
+                                videoAsset = videoAssetsById.getValue(response.videoAssetId),
+                            )
+                        } else {
+                            null
+                        },
+                    )
+                }
+                .sortedWith(compareByDescending<WallFrameResult> { it.mission.missionDate }.thenBy { it.slotIndex }),
+        )
+    }
+
     private fun generateUniqueInviteCode(roomId: UUID): String {
         repeat(10) {
             val code = inviteCodeGenerator.generate(roomId)
@@ -276,6 +362,26 @@ class RoomFacade(
     private fun rewardId(roomId: UUID, type: GrowthRewardType): UUID =
         UUID.nameUUIDFromBytes("growth-reward:$roomId:$type".toByteArray(StandardCharsets.UTF_8))
 
+    private fun frameId(missionId: UUID, memberId: UUID): UUID =
+        UUID.nameUUIDFromBytes("wall-frame:$missionId:$memberId".toByteArray(StandardCharsets.UTF_8))
+
+    private fun framePosition(missionIndex: Int, slotIndex: Int): WallFramePositionResult =
+        WallFramePositionResult(
+            x = 120.0 + (slotIndex % 3) * 260.0,
+            y = 100.0 + missionIndex.coerceAtLeast(0) * 220.0,
+            width = 220.0,
+            height = 160.0,
+            rotation = (slotIndex % 5 - 2) * 1.5,
+        )
+
+    private fun releaseIfDue(releaseState: MissionReleaseState): MissionReleaseState {
+        val scheduledAt = releaseState.releaseScheduledAt ?: return releaseState
+        if (releaseState.releasedAt != null || clock.instant().isBefore(scheduledAt)) {
+            return releaseState
+        }
+        return missionReleaseStateRepository.save(releaseState.copy(releasedAt = clock.instant()))
+    }
+
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(
             inviteLink = this,
@@ -284,6 +390,8 @@ class RoomFacade(
 
     private companion object {
         private val INVITE_CODE_PATTERN = Regex("^[A-HJ-NP-Z2-9]{6,32}$")
+        private val MIN_WALL_DATE: LocalDate = LocalDate.of(1970, 1, 1)
+        private val MAX_WALL_DATE: LocalDate = LocalDate.of(2100, 12, 31)
         private val growthRewardDefinitions = listOf(
             GrowthRewardDefinition(
                 type = GrowthRewardType.ROOM_NAMEPLATE,

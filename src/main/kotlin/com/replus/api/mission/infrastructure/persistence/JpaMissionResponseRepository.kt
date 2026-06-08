@@ -21,6 +21,15 @@ class JpaMissionResponseRepository(
             .findAllByMissionIdAndStatus(missionId, MissionResponseStatus.ACTIVE)
             .map { it.toDomain() }
 
+    override fun findActiveByMissionIds(missionIds: Collection<UUID>): List<MissionResponse> =
+        if (missionIds.isEmpty()) {
+            emptyList()
+        } else {
+            missionResponseJpaRepository
+                .findAllByMissionIdInAndStatus(missionIds, MissionResponseStatus.ACTIVE)
+                .map { it.toDomain() }
+        }
+
     override fun findActiveByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponse? =
         missionResponseJpaRepository
             .findByMissionIdAndMemberIdAndStatus(missionId, memberId, MissionResponseStatus.ACTIVE)

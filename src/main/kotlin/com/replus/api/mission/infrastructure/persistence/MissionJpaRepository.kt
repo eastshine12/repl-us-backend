@@ -11,6 +11,14 @@ import java.util.UUID
 interface MissionJpaRepository : JpaRepository<MissionEntity, UUID> {
     fun findByRoomIdAndMissionDate(roomId: UUID, missionDate: LocalDate): MissionEntity?
 
+    fun findAllByRoomIdOrderByMissionDateDesc(roomId: UUID): List<MissionEntity>
+
+    fun findAllByRoomIdAndMissionDateBetweenOrderByMissionDateDesc(
+        roomId: UUID,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<MissionEntity>
+
     fun findFirstByRoomIdOrderByMissionDateDesc(roomId: UUID): MissionEntity?
 
     fun findByIdAndRoomId(id: UUID, roomId: UUID): MissionEntity?
@@ -23,6 +31,11 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
 
     fun findAllByMissionIdAndStatus(
         missionId: UUID,
+        status: MissionResponseStatus,
+    ): List<MissionResponseEntity>
+
+    fun findAllByMissionIdInAndStatus(
+        missionIds: Collection<UUID>,
         status: MissionResponseStatus,
     ): List<MissionResponseEntity>
 

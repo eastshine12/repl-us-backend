@@ -13,6 +13,13 @@ class JpaMissionReleaseStateRepository(
     override fun findByMissionId(missionId: UUID): MissionReleaseState? =
         missionReleaseStateJpaRepository.findByIdOrNull(missionId)?.toDomain()
 
+    override fun findAllByMissionIds(missionIds: Collection<UUID>): List<MissionReleaseState> =
+        if (missionIds.isEmpty()) {
+            emptyList()
+        } else {
+            missionReleaseStateJpaRepository.findAllById(missionIds).map { it.toDomain() }
+        }
+
     override fun save(releaseState: MissionReleaseState): MissionReleaseState =
         missionReleaseStateJpaRepository.save(MissionReleaseStateEntity.from(releaseState)).toDomain()
 }

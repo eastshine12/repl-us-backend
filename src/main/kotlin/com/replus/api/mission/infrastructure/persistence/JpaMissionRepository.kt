@@ -15,6 +15,17 @@ class JpaMissionRepository(
     override fun findByRoomIdAndMissionDate(roomId: UUID, missionDate: LocalDate): Mission? =
         missionJpaRepository.findByRoomIdAndMissionDate(roomId, missionDate)?.toDomain()
 
+    override fun findAllByRoomId(roomId: UUID): List<Mission> =
+        missionJpaRepository.findAllByRoomIdOrderByMissionDateDesc(roomId).map { it.toDomain() }
+
+    override fun findAllByRoomIdAndMissionDateBetween(
+        roomId: UUID,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<Mission> =
+        missionJpaRepository.findAllByRoomIdAndMissionDateBetweenOrderByMissionDateDesc(roomId, from, to)
+            .map { it.toDomain() }
+
     override fun findLatestByRoomId(roomId: UUID): Mission? =
         missionJpaRepository.findFirstByRoomIdOrderByMissionDateDesc(roomId)?.toDomain()
 

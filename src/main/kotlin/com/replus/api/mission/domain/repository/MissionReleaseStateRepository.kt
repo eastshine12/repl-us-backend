@@ -6,5 +6,7 @@ import java.util.UUID
 interface MissionReleaseStateRepository {
     fun findByMissionId(missionId: UUID): MissionReleaseState?
 
+    fun findAllByMissionIds(missionIds: Collection<UUID>): List<MissionReleaseState>
+
     fun save(releaseState: MissionReleaseState): MissionReleaseState
 }
