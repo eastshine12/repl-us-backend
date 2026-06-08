@@ -7,4 +7,6 @@ interface ResponseReactionRepository {
     fun save(reaction: ResponseReaction): ResponseReaction
 
     fun findAllByResponseIds(responseIds: Collection<UUID>): List<ResponseReaction>
+
+    fun deleteAllByResponseId(responseId: UUID)
 }
