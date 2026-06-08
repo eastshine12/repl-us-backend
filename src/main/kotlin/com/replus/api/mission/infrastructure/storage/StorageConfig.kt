@@ -13,6 +13,7 @@ class StorageConfig {
     fun videoStoragePort(
         properties: StorageProperties,
         uploadSigners: ObjectProvider<ObjectStorageUploadSigner>,
+        uploadVerifiers: ObjectProvider<ObjectStorageUploadVerifier>,
     ): VideoStoragePort =
         when (properties.mode) {
             StorageMode.LOCAL -> LocalVideoStorageAdapter(properties.local)
@@ -20,6 +21,8 @@ class StorageConfig {
                 properties = properties.objectStorage,
                 uploadSigner = uploadSigners.getIfAvailable()
                     ?: throw IllegalStateException("Object storage upload signer is not configured"),
+                uploadVerifier = uploadVerifiers.getIfAvailable()
+                    ?: throw IllegalStateException("Object storage upload verifier is not configured"),
             )
         }
 }

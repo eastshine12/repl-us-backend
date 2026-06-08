@@ -22,4 +22,7 @@ data class LocalStorageProperties(
 data class ObjectStorageProperties(
     val bucket: String = "",
     val publicBaseUrl: String = "http://localhost:8080/mock-playback",
+    val region: String = "auto",
+    val endpoint: String = "",
+    val pathStyleAccessEnabled: Boolean = false,
 )
