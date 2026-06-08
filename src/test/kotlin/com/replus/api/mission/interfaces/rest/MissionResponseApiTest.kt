@@ -165,6 +165,47 @@ class MissionResponseApiTest {
     }
 
     @Test
+    fun `리플 삭제 후 같은 날 다시 업로드 URL을 발급하고 재제출할 수 있다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val firstObjectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val deletedResponseId = submitResponse(roomId, missionId, firstObjectKey)
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$deletedResponseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+
+        // when
+        val secondObjectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val resubmittedResponseId = submitResponse(roomId, missionId, secondObjectKey)
+
+        // then
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.viewer.hasSubmittedToday").value(true))
+            .andExpect(jsonPath("$.viewer.todayResponseId").value(resubmittedResponseId))
+            .andExpect(jsonPath("$.participation.submittedCount").value(1))
+            .andExpect(jsonPath("$.responses[0].id").value(resubmittedResponseId))
+            .andExpect(jsonPath("$.responses[0].status").value("ACTIVE"))
+            .andExpect(jsonPath("$.responses[0].video.objectKey").value(secondObjectKey))
+
+        mockMvc.perform(
+            get("/api/me")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.rooms[0].today.myResponseStatus").value("SUBMITTED"))
+            .andExpect(jsonPath("$.rooms[0].today.myResponseId").value(resubmittedResponseId))
+    }
+
+    @Test
     fun `전원 제출 후에는 리플 삭제가 거절된다`() {
         // given
         val today = getToday()

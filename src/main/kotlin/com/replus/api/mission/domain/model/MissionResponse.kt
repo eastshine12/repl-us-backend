@@ -20,6 +20,17 @@ data class MissionResponse(
             status = MissionResponseStatus.DELETED,
             deletedAt = deletedAt,
         )
+
+    fun reactivate(
+        videoAssetId: UUID,
+        createdAt: Instant,
+    ): MissionResponse =
+        copy(
+            videoAssetId = videoAssetId,
+            status = MissionResponseStatus.ACTIVE,
+            createdAt = createdAt,
+            deletedAt = null,
+        )
 }
 
 enum class MissionResponseStatus {
