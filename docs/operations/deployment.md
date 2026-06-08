@@ -23,6 +23,33 @@ The application exposes:
 Readiness includes the application readiness state, database health, and storage
 configuration health.
 
+## Container Image
+
+The repository includes a platform-neutral `Dockerfile` for deployment targets
+that can run container images. The image:
+
+- Builds the application with the Gradle wrapper.
+- Copies only the Spring Boot jar into the runtime stage.
+- Runs on Java 21 JRE.
+- Uses the `prod` Spring profile by default.
+- Runs as a non-root application user.
+
+Build locally:
+
+```bash
+docker build -t repl-us-backend:local .
+```
+
+The production image is expected to fail fast when required production variables
+are missing. For a local container smoke test without real production services,
+override the profile explicitly:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  repl-us-backend:local
+```
+
 ## Required Production Variables
 
 Set the production profile explicitly:
