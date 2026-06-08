@@ -27,6 +27,15 @@ class OperationalReadinessApiTest {
     }
 
     @Test
+    fun `readiness health endpoint includes database and storage dependencies`() {
+        mockMvc.perform(get("/actuator/health/readiness"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.components.readinessState.status").value("UP"))
+            .andExpect(jsonPath("$.components.db.status").value("UP"))
+            .andExpect(jsonPath("$.components.storage.status").value("UP"))
+    }
+
+    @Test
     fun `health endpoint includes storage readiness details without secrets`() {
         mockMvc.perform(get("/actuator/health"))
             .andExpect(status().isOk)
