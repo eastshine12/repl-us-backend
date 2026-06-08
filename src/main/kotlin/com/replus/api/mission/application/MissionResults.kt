@@ -3,6 +3,7 @@ package com.replus.api.mission.application
 import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionResponse
+import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.VideoAsset
@@ -91,3 +92,14 @@ data class CreatedMissionResponseResult(
     val videoAsset: VideoAsset,
     val author: User,
 )
+
+data class DeletedMissionResponseResult(
+    val responseId: UUID,
+    val status: MissionResponseStatus,
+    val frameStatus: DeletedResponseFrameStatus,
+    val deletedAt: Instant,
+)
+
+enum class DeletedResponseFrameStatus {
+    DELETED,
+}
