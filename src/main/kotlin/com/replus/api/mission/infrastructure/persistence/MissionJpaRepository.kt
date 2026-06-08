@@ -2,6 +2,9 @@ package com.replus.api.mission.infrastructure.persistence
 
 import com.replus.api.mission.domain.model.MissionResponseStatus
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -44,8 +47,14 @@ interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEn
 
 interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID> {
     fun findAllByResponseIdIn(responseIds: Collection<UUID>): List<ResponseReactionEntity>
+
+    fun deleteAllByResponseId(responseId: UUID)
 }
 
 interface ResponseCommentJpaRepository : JpaRepository<ResponseCommentEntity, UUID> {
     fun findAllByResponseIdAndDeletedAtIsNullOrderByCreatedAtAsc(responseId: UUID): List<ResponseCommentEntity>
+
+    @Modifying
+    @Query("update ResponseCommentEntity c set c.deletedAt = ?2 where c.responseId = ?1 and c.deletedAt is null")
+    fun softDeleteByResponseId(responseId: UUID, deletedAt: Instant)
 }
