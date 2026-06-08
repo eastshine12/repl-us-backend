@@ -10,4 +10,10 @@ class RoomAccessPolicy {
             throw CoreException(ErrorType.ROOM_MEMBER_REQUIRED)
         }
     }
+
+    fun requireOwner(member: RoomMember) {
+        if (!member.isOwner()) {
+            throw CoreException(ErrorType.ROOM_OWNER_REQUIRED)
+        }
+    }
 }

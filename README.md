@@ -13,6 +13,7 @@ The product is designed around intimacy rather than broadcast. Rooms are small, 
 - Authenticated invite join flow with a 6-member room limit.
 - Participation state for today's mission, including submitted counts and release readiness.
 - Direct response-video upload flow with object-key reservation and object-storage verification.
+- Operational health and readiness probes for deployment environments.
 - Foundation storage model for users, rooms, members, invites, missions, responses, video assets, and mission release state.
 - Development bearer-session flow for local testing before social login integration.
 
@@ -70,6 +71,12 @@ Example:
 
 ```bash
 curl -H "Authorization: Bearer dev-token-mina" http://localhost:8080/api/me
+```
+
+Readiness probe:
+
+```bash
+curl http://localhost:8080/actuator/health/readiness
 ```
 
 You can also create a temporary guest session:
