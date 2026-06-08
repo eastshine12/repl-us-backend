@@ -5,6 +5,7 @@ import com.replus.api.common.interfaces.rest.dto.RoomTodayResponseStatus
 import com.replus.api.common.interfaces.rest.dto.RoomTodaySummaryResponse
 import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toSummaryResponse
+import com.replus.api.room.application.GrowthRewardsResult
 import com.replus.api.room.application.InviteLinkResult
 import com.replus.api.room.application.RemoveMemberResult
 import com.replus.api.room.application.RoomDetailResult
@@ -59,6 +60,25 @@ data class RemoveMemberResponse(
     val memberId: UUID,
     val status: String,
     val removedAt: Instant,
+)
+
+data class GrowthRewardsResponse(
+    val roomId: UUID,
+    val rewards: List<GrowthRewardResponse>,
+)
+
+data class GrowthRewardResponse(
+    val id: UUID,
+    val roomId: UUID,
+    val type: String,
+    val category: String,
+    val title: String,
+    val description: String,
+    val status: String,
+    val progress: Int,
+    val threshold: Int,
+    val unlockedAt: Instant?,
+    val assetKey: String?,
 )
 
 fun RoomDetailResult.toResponse(): RoomDetailResponse =
@@ -117,4 +137,24 @@ fun RemoveMemberResult.toResponse(): RemoveMemberResponse =
         memberId = member.id,
         status = member.status.name,
         removedAt = member.removedAt!!,
+    )
+
+fun GrowthRewardsResult.toResponse(): GrowthRewardsResponse =
+    GrowthRewardsResponse(
+        roomId = roomId,
+        rewards = rewards.map {
+            GrowthRewardResponse(
+                id = it.id,
+                roomId = it.roomId,
+                type = it.type.name,
+                category = it.category.name,
+                title = it.title,
+                description = it.description,
+                status = it.status.name,
+                progress = it.progress,
+                threshold = it.threshold,
+                unlockedAt = it.unlockedAt,
+                assetKey = it.assetKey,
+            )
+        },
     )

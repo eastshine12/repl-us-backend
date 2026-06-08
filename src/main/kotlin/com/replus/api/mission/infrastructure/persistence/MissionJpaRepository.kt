@@ -17,6 +17,8 @@ interface MissionJpaRepository : JpaRepository<MissionEntity, UUID> {
 }
 
 interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UUID> {
+    fun countByRoomIdAndStatus(roomId: UUID, status: MissionResponseStatus): Int
+
     fun countByMissionIdAndStatus(missionId: UUID, status: MissionResponseStatus): Int
 
     fun findAllByMissionIdAndStatus(

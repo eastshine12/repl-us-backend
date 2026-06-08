@@ -4,6 +4,8 @@ import com.replus.api.mission.domain.model.MissionResponse
 import java.util.UUID
 
 interface MissionResponseRepository {
+    fun countActiveByRoomId(roomId: UUID): Int
+
     fun countActiveByMissionId(missionId: UUID): Int
 
     fun findActiveByMissionId(missionId: UUID): List<MissionResponse>

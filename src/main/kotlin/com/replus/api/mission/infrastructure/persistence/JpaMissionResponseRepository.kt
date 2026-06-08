@@ -10,6 +10,9 @@ import java.util.UUID
 class JpaMissionResponseRepository(
     private val missionResponseJpaRepository: MissionResponseJpaRepository,
 ) : MissionResponseRepository {
+    override fun countActiveByRoomId(roomId: UUID): Int =
+        missionResponseJpaRepository.countByRoomIdAndStatus(roomId, MissionResponseStatus.ACTIVE)
+
     override fun countActiveByMissionId(missionId: UUID): Int =
         missionResponseJpaRepository.countByMissionIdAndStatus(missionId, MissionResponseStatus.ACTIVE)
 

@@ -3,6 +3,7 @@ package com.replus.api.room.application
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
+import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
 import com.replus.api.room.domain.model.InviteLink
@@ -19,6 +20,7 @@ import com.replus.api.room.domain.service.InviteCodeGenerator
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDate
@@ -219,6 +221,38 @@ class RoomFacade(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getGrowthRewards(userId: UUID, roomId: UUID): GrowthRewardsResult {
+        roomRepository.getById(roomId)
+        val member = roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
+        roomAccessPolicy.requireActiveMember(member)
+
+        val activeResponseCount = missionResponseRepository.countActiveByRoomId(roomId)
+        return GrowthRewardsResult(
+            roomId = roomId,
+            rewards = growthRewardDefinitions.map { definition ->
+                val status = if (activeResponseCount >= definition.threshold) {
+                    GrowthRewardStatus.UNLOCKED
+                } else {
+                    GrowthRewardStatus.LOCKED
+                }
+                GrowthRewardResult(
+                    id = rewardId(roomId, definition.type),
+                    roomId = roomId,
+                    type = definition.type,
+                    category = definition.category,
+                    title = definition.title,
+                    description = definition.description,
+                    status = status,
+                    progress = activeResponseCount,
+                    threshold = definition.threshold,
+                    unlockedAt = null,
+                    assetKey = definition.assetKey,
+                )
+            },
+        )
+    }
+
     private fun generateUniqueInviteCode(roomId: UUID): String {
         repeat(10) {
             val code = inviteCodeGenerator.generate(roomId)
@@ -239,6 +273,9 @@ class RoomFacade(
     private fun today(): LocalDate =
         LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")))
 
+    private fun rewardId(roomId: UUID, type: GrowthRewardType): UUID =
+        UUID.nameUUIDFromBytes("growth-reward:$roomId:$type".toByteArray(StandardCharsets.UTF_8))
+
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(
             inviteLink = this,
@@ -247,5 +284,40 @@ class RoomFacade(
 
     private companion object {
         private val INVITE_CODE_PATTERN = Regex("^[A-HJ-NP-Z2-9]{6,32}$")
+        private val growthRewardDefinitions = listOf(
+            GrowthRewardDefinition(
+                type = GrowthRewardType.ROOM_NAMEPLATE,
+                category = MissionCategory.OBSERVATION,
+                title = "Room Nameplate",
+                description = "Submit the room's first 3-second response.",
+                threshold = 1,
+                assetKey = "growth/room-nameplate",
+            ),
+            GrowthRewardDefinition(
+                type = GrowthRewardType.FRIDGE_MAGNET,
+                category = MissionCategory.MOOD,
+                title = "Fridge Magnet",
+                description = "Collect three active responses in the room.",
+                threshold = 3,
+                assetKey = "growth/fridge-magnet",
+            ),
+            GrowthRewardDefinition(
+                type = GrowthRewardType.MONTHLY_FRAME,
+                category = MissionCategory.FULL_PARTICIPATION,
+                title = "Monthly Frame",
+                description = "Keep the room alive with seven active responses.",
+                threshold = 7,
+                assetKey = "growth/monthly-frame",
+            ),
+        )
     }
+
+    private data class GrowthRewardDefinition(
+        val type: GrowthRewardType,
+        val category: MissionCategory,
+        val title: String,
+        val description: String,
+        val threshold: Int,
+        val assetKey: String,
+    )
 }

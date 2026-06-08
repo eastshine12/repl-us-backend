@@ -101,4 +101,14 @@ class RoomController(
         val user = bearerAuthSupport.requireUser(authorization)
         return roomFacade.removeMember(user.userId, roomId, memberId).toResponse()
     }
+
+    @GetMapping("/api/rooms/{roomId}/growth-rewards")
+    fun getGrowthRewards(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+    ): GrowthRewardsResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return roomFacade.getGrowthRewards(user.userId, roomId).toResponse()
+    }
 }
