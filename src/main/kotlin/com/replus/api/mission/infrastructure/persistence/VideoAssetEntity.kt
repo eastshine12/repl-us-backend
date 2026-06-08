@@ -1,8 +1,11 @@
 package com.replus.api.mission.infrastructure.persistence
 
 import com.replus.api.mission.domain.model.VideoAsset
+import com.replus.api.mission.domain.model.VideoAssetStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
@@ -17,6 +20,10 @@ class VideoAssetEntity(
 
     @Column(name = "object_key", nullable = false, length = 512)
     var objectKey: String,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 32)
+    var status: VideoAssetStatus,
 
     @Column(name = "content_type", nullable = false, length = 64)
     var contentType: String,
@@ -41,11 +48,15 @@ class VideoAssetEntity(
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant,
+
+    @Column(name = "uploaded_at")
+    var uploadedAt: Instant?,
 ) {
     fun toDomain(): VideoAsset =
         VideoAsset(
             id = id,
             objectKey = objectKey,
+            status = status,
             contentType = contentType,
             fileSizeBytes = fileSizeBytes,
             durationSeconds = durationSeconds,
@@ -54,6 +65,7 @@ class VideoAssetEntity(
             height = height,
             thumbnailObjectKey = thumbnailObjectKey,
             createdAt = createdAt,
+            uploadedAt = uploadedAt,
         )
 
     companion object {
@@ -61,6 +73,7 @@ class VideoAssetEntity(
             VideoAssetEntity(
                 id = videoAsset.id,
                 objectKey = videoAsset.objectKey,
+                status = videoAsset.status,
                 contentType = videoAsset.contentType,
                 fileSizeBytes = videoAsset.fileSizeBytes,
                 durationSeconds = videoAsset.durationSeconds,
@@ -69,6 +82,7 @@ class VideoAssetEntity(
                 height = videoAsset.height,
                 thumbnailObjectKey = videoAsset.thumbnailObjectKey,
                 createdAt = videoAsset.createdAt,
+                uploadedAt = videoAsset.uploadedAt,
             )
     }
 }

@@ -1,6 +1,7 @@
 package com.replus.api.common.interfaces.rest.dto
 
 import com.replus.api.auth.domain.model.User
+import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
 import com.replus.api.room.domain.model.RoomRole
@@ -29,6 +30,16 @@ data class RoomSummaryResponse(
     val maxMembers: Int,
     val currentUserRole: RoomRole,
     val lastMissionDate: LocalDate?,
+    val today: RoomTodaySummaryResponse?,
+)
+
+data class RoomTodaySummaryResponse(
+    val missionId: UUID,
+    val missionDate: LocalDate,
+    val prompt: String,
+    val category: MissionCategory,
+    val myResponseStatus: RoomTodayResponseStatus,
+    val myResponseId: UUID?,
 )
 
 data class RoomMemberResponse(
@@ -61,6 +72,7 @@ fun Room.toSummaryResponse(
     memberCount: Int,
     currentMember: RoomMember,
     lastMissionDate: LocalDate?,
+    today: RoomTodaySummaryResponse? = null,
 ): RoomSummaryResponse =
     RoomSummaryResponse(
         id = id,
@@ -69,4 +81,10 @@ fun Room.toSummaryResponse(
         maxMembers = maxMembers,
         currentUserRole = currentMember.role,
         lastMissionDate = lastMissionDate,
+        today = today,
     )
+
+enum class RoomTodayResponseStatus {
+    NOT_SUBMITTED,
+    SUBMITTED,
+}

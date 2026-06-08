@@ -1,6 +1,7 @@
 package com.replus.api.mission.interfaces.rest
 
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
+import com.replus.api.mission.domain.repository.VideoAssetRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -9,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -22,6 +24,8 @@ import java.util.UUID
 @AutoConfigureMockMvc
 @Sql(
     statements = [
+        "delete from response_comments",
+        "delete from response_reactions",
         "delete from mission_release_states",
         "delete from mission_responses",
         "delete from video_assets",
@@ -37,6 +41,9 @@ class MissionResponseApiTest {
 
     @Autowired
     private lateinit var missionReleaseStateRepository: MissionReleaseStateRepository
+
+    @Autowired
+    private lateinit var videoAssetRepository: VideoAssetRepository
 
     @Test
     fun `업로드 URL은 현재 멤버의 object key를 발급한다`() {
@@ -70,6 +77,10 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.objectKey").value("rooms/$roomId/missions/$missionId/members/$memberId.webm"))
             .andExpect(jsonPath("$.requiredHeaders['Content-Type']").value("video/webm"))
             .andExpect(jsonPath("$.maxFileSizeBytes").value(15000000))
+
+        val videoAsset = videoAssetRepository.findByObjectKey("rooms/$roomId/missions/$missionId/members/$memberId.webm")
+        assertThat(videoAsset).isNotNull
+        assertThat(videoAsset!!.status.name).isEqualTo("PENDING_UPLOAD")
     }
 
     @Test
@@ -85,6 +96,10 @@ class MissionResponseApiTest {
         submitResponse(roomId, missionId, objectKey)
 
         // then
+        val videoAsset = videoAssetRepository.findByObjectKey(objectKey)
+        assertThat(videoAsset).isNotNull
+        assertThat(videoAsset!!.status.name).isEqualTo("READY")
+
         mockMvc.perform(
             get("/api/rooms/$roomId/today")
                 .header("Authorization", "Bearer dev-token-mina"),
@@ -98,6 +113,140 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.responses[0].video.objectKey").value(objectKey))
             .andExpect(jsonPath("$.responses[0].video.durationSeconds").value(3))
             .andExpect(jsonPath("$.responses[0].video.hasAudio").value(true))
+    }
+
+    @Test
+    fun `리플 삭제 후 오늘 화면과 방 요약은 내 미제출 상태로 돌아간다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val objectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val responseId = submitResponse(roomId, missionId, objectKey)
+
+        // when
+        val result = mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isOk)
+            .andExpect(jsonPath("$.responseId").value(responseId))
+            .andExpect(jsonPath("$.status").value("DELETED"))
+            .andExpect(jsonPath("$.frameStatus").value("DELETED"))
+            .andExpect(jsonPath("$.deletedAt").exists())
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.viewer.hasSubmittedToday").value(false))
+            .andExpect(jsonPath("$.viewer.todayResponseId").doesNotExist())
+            .andExpect(jsonPath("$.participation.submittedCount").value(0))
+            .andExpect(jsonPath("$.responses").isEmpty)
+
+        mockMvc.perform(
+            get("/api/me")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.rooms[0].today.myResponseStatus").value("NOT_SUBMITTED"))
+            .andExpect(jsonPath("$.rooms[0].today.myResponseId").doesNotExist())
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.today.myResponseStatus").value("NOT_SUBMITTED"))
+            .andExpect(jsonPath("$.today.myResponseId").doesNotExist())
+    }
+
+    @Test
+    fun `리플 삭제 후 같은 날 다시 업로드 URL을 발급하고 재제출할 수 있다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val firstObjectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val deletedResponseId = submitResponse(roomId, missionId, firstObjectKey)
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$deletedResponseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+
+        // when
+        val secondObjectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val resubmittedResponseId = submitResponse(roomId, missionId, secondObjectKey)
+
+        // then
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.viewer.hasSubmittedToday").value(true))
+            .andExpect(jsonPath("$.viewer.todayResponseId").value(resubmittedResponseId))
+            .andExpect(jsonPath("$.participation.submittedCount").value(1))
+            .andExpect(jsonPath("$.responses[0].id").value(resubmittedResponseId))
+            .andExpect(jsonPath("$.responses[0].status").value("ACTIVE"))
+            .andExpect(jsonPath("$.responses[0].video.objectKey").value(secondObjectKey))
+
+        mockMvc.perform(
+            get("/api/me")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.rooms[0].today.myResponseStatus").value("SUBMITTED"))
+            .andExpect(jsonPath("$.rooms[0].today.myResponseId").value(resubmittedResponseId))
+    }
+
+    @Test
+    fun `전원 제출 후에는 리플 삭제가 거절된다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        val responseId = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        submitResponseForToken(roomId, missionId, token = "dev-token-joon")
+        submitResponseForToken(roomId, missionId, token = "dev-token-ara")
+
+        // when
+        val result = mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("RESPONSE_RELEASE_LOCKED"))
+    }
+
+    @Test
+    fun `업로드 URL 발급 없이 리플 제출하면 거절된다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val memberId = today["viewer"]["memberId"].asString()
+        val objectKey = "rooms/$roomId/missions/$missionId/members/$memberId.webm"
+
+        // when
+        val result = mockMvc.perform(
+            post("/api/rooms/$roomId/missions/$missionId/responses")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(missionResponseBody(objectKey)),
+        )
+
+        // then
+        result.andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     @Test
@@ -284,18 +433,25 @@ class MissionResponseApiTest {
         missionId: String,
         objectKey: String,
         token: String = "dev-token-mina",
-    ) {
-        mockMvc.perform(
-            post("/api/rooms/$roomId/missions/$missionId/responses")
-                .header("Authorization", "Bearer $token")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(missionResponseBody(objectKey)),
-        ).andExpect(status().isCreated)
-    }
+    ): String =
+        objectMapper
+            .readTree(
+                mockMvc.perform(
+                    post("/api/rooms/$roomId/missions/$missionId/responses")
+                        .header("Authorization", "Bearer $token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(missionResponseBody(objectKey)),
+                )
+                    .andExpect(status().isCreated)
+                    .andReturn()
+                    .response
+                    .contentAsString,
+            )["id"]
+            .asString()
 
-    private fun submitResponseForToken(roomId: String, missionId: String, token: String) {
+    private fun submitResponseForToken(roomId: String, missionId: String, token: String): String {
         val objectKey = createUploadUrl(roomId, missionId, token)["objectKey"].asString()
-        submitResponse(roomId, missionId, objectKey, token)
+        return submitResponse(roomId, missionId, objectKey, token)
     }
 
     private fun missionResponseBody(objectKey: String): String =
