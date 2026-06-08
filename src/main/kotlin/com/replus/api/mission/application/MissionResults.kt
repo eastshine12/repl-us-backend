@@ -3,7 +3,9 @@ package com.replus.api.mission.application
 import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionResponse
+import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
@@ -20,8 +22,20 @@ data class TodayResult(
     val memberCount: Int,
     val mission: Mission,
     val participation: ParticipationResult,
-    val responses: List<MissionResponse>,
+    val responses: List<TodayMissionResponseResult>,
     val releaseState: MissionReleaseState?,
+)
+
+data class TodayMissionResponseResult(
+    val response: MissionResponse,
+    val videoAsset: VideoAsset,
+    val reactionSummary: List<ReactionSummaryResult>,
+)
+
+data class ReactionSummaryResult(
+    val type: ReactionType,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 data class TodayMemberResult(
@@ -78,3 +92,14 @@ data class CreatedMissionResponseResult(
     val videoAsset: VideoAsset,
     val author: User,
 )
+
+data class DeletedMissionResponseResult(
+    val responseId: UUID,
+    val status: MissionResponseStatus,
+    val frameStatus: DeletedResponseFrameStatus,
+    val deletedAt: Instant,
+)
+
+enum class DeletedResponseFrameStatus {
+    DELETED,
+}

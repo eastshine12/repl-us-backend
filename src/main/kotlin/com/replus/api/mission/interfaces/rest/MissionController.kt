@@ -2,8 +2,10 @@ package com.replus.api.mission.interfaces.rest
 
 import com.replus.api.common.security.BearerAuthSupport
 import com.replus.api.mission.application.MissionFacade
+import com.replus.api.mission.application.port.VideoStoragePort
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -18,6 +20,7 @@ import java.util.UUID
 class MissionController(
     private val missionFacade: MissionFacade,
     private val bearerAuthSupport: BearerAuthSupport,
+    private val videoStoragePort: VideoStoragePort,
 ) {
     @GetMapping("/api/rooms/{roomId}/today")
     fun getToday(
@@ -26,7 +29,7 @@ class MissionController(
         @PathVariable roomId: UUID,
     ): TodayResponse {
         val user = bearerAuthSupport.requireUser(authorization)
-        return missionFacade.getToday(user.userId, roomId).toResponse()
+        return missionFacade.getToday(user.userId, roomId).toResponse(videoStoragePort)
     }
 
     @PatchMapping("/api/rooms/{roomId}/missions/{missionId}")
@@ -84,6 +87,21 @@ class MissionController(
             roomId = roomId,
             missionId = missionId,
             command = request.toCommand(),
+        ).toResponse(videoStoragePort)
+    }
+
+    @DeleteMapping("/api/rooms/{roomId}/responses/{responseId}")
+    fun deleteMissionResponse(
+        @RequestHeader(BearerAuthSupport.AUTHORIZATION_HEADER, required = false)
+        authorization: String?,
+        @PathVariable roomId: UUID,
+        @PathVariable responseId: UUID,
+    ): DeleteResponseResultResponse {
+        val user = bearerAuthSupport.requireUser(authorization)
+        return missionFacade.deleteMissionResponse(
+            userId = user.userId,
+            roomId = roomId,
+            responseId = responseId,
         ).toResponse()
     }
 }

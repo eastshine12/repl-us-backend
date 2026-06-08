@@ -3,6 +3,7 @@ package com.replus.api.mission.infrastructure.persistence
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import org.springframework.stereotype.Repository
+import java.util.UUID
 
 @Repository
 class JpaVideoAssetRepository(
@@ -10,4 +11,10 @@ class JpaVideoAssetRepository(
 ) : VideoAssetRepository {
     override fun save(videoAsset: VideoAsset): VideoAsset =
         videoAssetJpaRepository.save(VideoAssetEntity.from(videoAsset)).toDomain()
+
+    override fun findByObjectKey(objectKey: String): VideoAsset? =
+        videoAssetJpaRepository.findByObjectKey(objectKey)?.toDomain()
+
+    override fun findAllByIds(ids: Collection<UUID>): List<VideoAsset> =
+        videoAssetJpaRepository.findAllById(ids).map { it.toDomain() }
 }

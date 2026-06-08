@@ -1,14 +1,16 @@
 package com.replus.api.mission.interfaces.rest
 
+import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.mission.application.CreatedMissionResponseResult
+import com.replus.api.mission.application.DeletedMissionResponseResult
 import com.replus.api.mission.application.MissionResponseCreateCommand
 import com.replus.api.mission.application.MissionResponseUploadMetadata
 import com.replus.api.mission.application.MissionResponseUploadUrlResult
 import com.replus.api.mission.application.TodayResult
+import com.replus.api.mission.application.port.VideoStoragePort
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.VideoAsset
-import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
 import com.replus.api.room.domain.model.RoomRole
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -142,6 +144,13 @@ data class MissionResponseCreatedResponse(
     val deletedAt: Instant?,
 )
 
+data class DeleteResponseResultResponse(
+    val responseId: UUID,
+    val status: String,
+    val frameStatus: String,
+    val deletedAt: Instant,
+)
+
 data class VideoAssetResponse(
     val objectKey: String,
     val playbackUrl: String,
@@ -214,7 +223,7 @@ fun CreateMissionResponseRequest.toCommand(): MissionResponseCreateCommand =
         clientCapturedAt = clientCapturedAt,
     )
 
-fun CreatedMissionResponseResult.toResponse(): MissionResponseCreatedResponse =
+fun CreatedMissionResponseResult.toResponse(videoStoragePort: VideoStoragePort): MissionResponseCreatedResponse =
     MissionResponseCreatedResponse(
         id = response.id,
         roomId = response.roomId,
@@ -227,17 +236,25 @@ fun CreatedMissionResponseResult.toResponse(): MissionResponseCreatedResponse =
         ),
         status = response.status.name,
         visibility = "VISIBLE",
-        video = videoAsset.toResponse(),
+        video = videoAsset.toResponse(videoStoragePort),
         reactionSummary = emptyList(),
         createdAt = response.createdAt,
         deletedAt = response.deletedAt,
     )
 
-fun VideoAsset.toResponse(): VideoAssetResponse =
+fun DeletedMissionResponseResult.toResponse(): DeleteResponseResultResponse =
+    DeleteResponseResultResponse(
+        responseId = responseId,
+        status = status.name,
+        frameStatus = frameStatus.name,
+        deletedAt = deletedAt,
+    )
+
+fun VideoAsset.toResponse(videoStoragePort: VideoStoragePort): VideoAssetResponse =
     VideoAssetResponse(
         objectKey = objectKey,
-        playbackUrl = "http://localhost:8080/mock-playback/$objectKey",
-        thumbnailUrl = thumbnailObjectKey?.let { "http://localhost:8080/mock-playback/$it" },
+        playbackUrl = videoStoragePort.playbackUrl(objectKey),
+        thumbnailUrl = thumbnailObjectKey?.let { videoStoragePort.thumbnailUrl(it) },
         contentType = contentType,
         durationSeconds = durationSeconds,
         hasAudio = hasAudio,
@@ -246,7 +263,7 @@ fun VideoAsset.toResponse(): VideoAssetResponse =
         fileSizeBytes = fileSizeBytes,
     )
 
-fun TodayResult.toResponse(): TodayResponse {
+fun TodayResult.toResponse(videoStoragePort: VideoStoragePort): TodayResponse {
     val canEdit = currentMember.role == RoomRole.OWNER &&
         mission.editCount == 0 &&
         participation.submittedCount == 0
@@ -276,23 +293,32 @@ fun TodayResult.toResponse(): TodayResponse {
             allSubmitted = participation.allSubmitted,
         ),
         responses = responses.map {
-            val author = members.first { member -> member.member.id == it.memberId }.user
+            val response = it.response
+            val isMine = response.memberId == currentMember.id
+            val canSeeVideo = isMine || participation.canViewFriendResponses
+            val author = members.first { member -> member.member.id == response.memberId }.user
             MissionResponsePreviewResponse(
-                id = it.id,
-                missionId = it.missionId,
-                memberId = it.memberId,
+                id = response.id,
+                missionId = response.missionId,
+                memberId = response.memberId,
                 author = UserSummaryResponse(
                     id = author.id,
                     displayName = author.displayName,
                     avatarUrl = author.avatarUrl,
                 ),
-                isMine = it.memberId == currentMember.id,
-                status = it.status.name,
-                visibility = if (it.memberId == currentMember.id) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
-                video = null,
-                reactionSummary = emptyList(),
-                createdAt = it.createdAt,
-                deletedAt = it.deletedAt,
+                isMine = isMine,
+                status = response.status.name,
+                visibility = if (canSeeVideo) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
+                video = if (canSeeVideo) it.videoAsset.toResponse(videoStoragePort) else null,
+                reactionSummary = it.reactionSummary.map { summary ->
+                    ReactionSummaryItemResponse(
+                        type = summary.type.name,
+                        count = summary.count,
+                        reactedByViewer = summary.reactedByViewer,
+                    )
+                },
+                createdAt = response.createdAt,
+                deletedAt = response.deletedAt,
             )
         },
         todayFrames = emptyList(),
