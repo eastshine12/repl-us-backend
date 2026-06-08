@@ -5,6 +5,7 @@ import com.replus.api.mission.application.MissionLifecycleReleaseResult
 import com.replus.api.mission.application.MissionLifecycleWorker
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -42,6 +43,38 @@ class MissionLifecycleSchedulerConfigTest {
 
                 assertThat(worker.releaseDueCallCount).isEqualTo(1)
             }
+    }
+
+    @Test
+    fun `scheduler는 미완료 실패 처리 예외를 다시 던지지 않는다`() {
+        val scheduler = MissionLifecycleScheduler(
+            MissionLifecycleWorker(
+                missionLifecycleFailureUseCase = { _ -> throw IllegalStateException("failure worker failed") },
+                missionLifecycleReleaseUseCase = { _ -> MissionLifecycleReleaseResult(releasedMissionIds = emptyList()) },
+                clock = Clock.systemUTC(),
+                zoneIdValue = "Asia/Seoul",
+            ),
+        )
+
+        assertDoesNotThrow {
+            scheduler.failIncompleteMissionsBeforeToday()
+        }
+    }
+
+    @Test
+    fun `scheduler는 release due 처리 예외를 다시 던지지 않는다`() {
+        val scheduler = MissionLifecycleScheduler(
+            MissionLifecycleWorker(
+                missionLifecycleFailureUseCase = { _ -> MissionLifecycleFailureResult(failedMissionIds = emptyList()) },
+                missionLifecycleReleaseUseCase = { _ -> throw IllegalStateException("release worker failed") },
+                clock = Clock.systemUTC(),
+                zoneIdValue = "Asia/Seoul",
+            ),
+        )
+
+        assertDoesNotThrow {
+            scheduler.releaseDueMissions()
+        }
     }
 
     @Configuration
