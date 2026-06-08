@@ -20,6 +20,7 @@ class ObjectStorageClientConfig {
     @ConditionalOnMissingBean
     fun s3Client(properties: StorageProperties): S3Client {
         val objectStorage = properties.objectStorage
+            .also { it.requireValidClientSettings() }
         val builder = S3Client.builder()
             .region(Region.of(objectStorage.region.trim()))
             .serviceConfiguration(s3Configuration(objectStorage))
@@ -35,6 +36,7 @@ class ObjectStorageClientConfig {
     @ConditionalOnMissingBean
     fun s3Presigner(properties: StorageProperties): S3Presigner {
         val objectStorage = properties.objectStorage
+            .also { it.requireValidClientSettings() }
         val builder = S3Presigner.builder()
             .region(Region.of(objectStorage.region.trim()))
             .serviceConfiguration(s3Configuration(objectStorage))

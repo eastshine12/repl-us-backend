@@ -14,6 +14,12 @@ interface RoomMemberJpaRepository : JpaRepository<RoomMemberEntity, UUID> {
         status: RoomMemberStatus,
     ): RoomMemberEntity?
 
+    fun findByIdAndRoomIdAndStatus(
+        id: UUID,
+        roomId: UUID,
+        status: RoomMemberStatus,
+    ): RoomMemberEntity?
+
     fun findByRoomIdAndUserId(roomId: UUID, userId: UUID): RoomMemberEntity?
 
     fun findAllByRoomIdAndStatusOrderBySlotIndexAsc(

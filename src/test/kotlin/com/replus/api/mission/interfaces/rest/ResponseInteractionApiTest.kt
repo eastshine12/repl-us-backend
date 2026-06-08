@@ -9,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -152,6 +153,47 @@ class ResponseInteractionApiTest {
             .andExpect(jsonPath("$.comments[0].author.displayName").value("민아"))
             .andExpect(jsonPath("$.comments[1].body").value("두 번째 댓글"))
             .andExpect(jsonPath("$.comments[1].author.displayName").value("아라"))
+    }
+
+    @Test
+    fun `리플 삭제 후 재제출하면 이전 댓글과 리액션은 새 리플에 보이지 않는다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val response = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        val responseId = response["id"].asString()
+
+        mockMvc.perform(
+            post("/api/rooms/$roomId/responses/$responseId/reactions")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"HEART"}"""),
+        ).andExpect(status().isCreated)
+
+        createComment(roomId, responseId, token = "dev-token-mina", body = "예전 댓글")
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        ).andExpect(status().isOk)
+
+        // when
+        val resubmitted = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+
+        // then
+        assertThat(resubmitted["id"].asString()).isEqualTo(responseId)
+
+        val resubmittedToday = getTodayByRoomId(roomId)
+        val resubmittedResponse = findResponse(resubmittedToday, responseId)
+        assertThat(resubmittedResponse["reactionSummary"].size()).isZero()
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/responses/$responseId/comments")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.comments").isEmpty)
     }
 
     @Test
