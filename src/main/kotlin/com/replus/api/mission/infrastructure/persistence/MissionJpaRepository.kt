@@ -62,7 +62,11 @@ interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID> {
     fun findByObjectKey(objectKey: String): VideoAssetEntity?
 }
 
-interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID>
+interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID> {
+    fun findAllByReleaseScheduledAtLessThanEqualAndReleasedAtIsNullAndFailedAtIsNull(
+        releaseScheduledAt: Instant,
+    ): List<MissionReleaseStateEntity>
+}
 
 interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID> {
     fun findAllByResponseIdIn(responseIds: Collection<UUID>): List<ResponseReactionEntity>

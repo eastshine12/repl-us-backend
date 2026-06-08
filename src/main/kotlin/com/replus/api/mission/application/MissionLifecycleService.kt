@@ -9,6 +9,7 @@ import com.replus.api.room.domain.repository.RoomMemberRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -19,7 +20,8 @@ class MissionLifecycleService(
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val roomMemberRepository: RoomMemberRepository,
     private val clock: Clock,
-) : MissionLifecycleFailureUseCase {
+) : MissionLifecycleFailureUseCase,
+    MissionLifecycleReleaseUseCase {
     @Transactional
     override fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult {
         val now = clock.instant()
@@ -41,6 +43,18 @@ class MissionLifecycleService(
             }
 
         return MissionLifecycleFailureResult(failedMissionIds = failedMissionIds)
+    }
+
+    @Transactional
+    override fun releaseDueMissions(dueAt: Instant): MissionLifecycleReleaseResult {
+        val releasedMissionIds = missionReleaseStateRepository
+            .findAllDueForRelease(dueAt)
+            .map { releaseState ->
+                missionReleaseStateRepository.save(releaseState.copy(releasedAt = dueAt))
+                releaseState.missionId
+            }
+
+        return MissionLifecycleReleaseResult(releasedMissionIds = releasedMissionIds)
     }
 
     private fun shouldFail(mission: Mission): Boolean {
@@ -65,4 +79,12 @@ data class MissionLifecycleFailureResult(
 
 fun interface MissionLifecycleFailureUseCase {
     fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult
+}
+
+data class MissionLifecycleReleaseResult(
+    val releasedMissionIds: List<UUID>,
+)
+
+fun interface MissionLifecycleReleaseUseCase {
+    fun releaseDueMissions(dueAt: Instant): MissionLifecycleReleaseResult
 }
