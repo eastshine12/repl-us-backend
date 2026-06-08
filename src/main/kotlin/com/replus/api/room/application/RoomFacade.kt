@@ -5,9 +5,12 @@ import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.model.ReactionType
+import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.ResponseReactionRepository
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.model.InviteLink
 import com.replus.api.room.domain.model.Room
@@ -41,6 +44,7 @@ class RoomFacade(
     private val missionResponseRepository: MissionResponseRepository,
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
+    private val responseReactionRepository: ResponseReactionRepository,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val roomCapacityPolicy: RoomCapacityPolicy,
     private val inviteCodeGenerator: InviteCodeGenerator,
@@ -286,6 +290,9 @@ class RoomFacade(
         val videoAssetsById = videoAssetRepository
             .findAllByIds(responses.map { it.videoAssetId })
             .associateBy { it.id }
+        val reactionsByResponseId = responseReactionRepository
+            .findAllByResponseIds(responses.map { it.id })
+            .groupBy { it.responseId }
         val releaseStatesByMissionId = missionReleaseStateRepository
             .findAllByMissionIds(missionIds)
             .associateBy { it.missionId }
@@ -329,6 +336,11 @@ class RoomFacade(
                                 isMine = isMine,
                                 visibility = WallResponseVisibility.VISIBLE,
                                 videoAsset = videoAssetsById.getValue(response.videoAssetId),
+                                reactionSummary = reactionSummary(
+                                    responseId = response.id,
+                                    reactionsByResponseId = reactionsByResponseId,
+                                    viewerMemberId = currentMember.id,
+                                ),
                             )
                         } else {
                             null
@@ -381,6 +393,24 @@ class RoomFacade(
         }
         return missionReleaseStateRepository.save(releaseState.copy(releasedAt = clock.instant()))
     }
+
+    private fun reactionSummary(
+        responseId: UUID,
+        reactionsByResponseId: Map<UUID, List<ResponseReaction>>,
+        viewerMemberId: UUID,
+    ): List<WallReactionSummaryResult> =
+        ReactionType.entries.mapNotNull { type ->
+            val reactions = reactionsByResponseId[responseId].orEmpty().filter { it.type == type }
+            if (reactions.isEmpty()) {
+                null
+            } else {
+                WallReactionSummaryResult(
+                    type = type,
+                    count = reactions.size,
+                    reactedByViewer = reactions.any { it.memberId == viewerMemberId },
+                )
+            }
+        }
 
     private fun InviteLink.toResult(): InviteLinkResult =
         InviteLinkResult(

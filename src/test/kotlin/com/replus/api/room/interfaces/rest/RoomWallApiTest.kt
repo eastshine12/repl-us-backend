@@ -93,6 +93,31 @@ class RoomWallApiTest {
     }
 
     @Test
+    fun `벽 조회는 보이는 리플의 리액션 요약을 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val myResponse = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        val responseId = myResponse["id"].asString()
+
+        mockMvc.perform(
+            post("/api/rooms/$roomId/responses/$responseId/reactions")
+                .header("Authorization", "Bearer dev-token-mina")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"type":"HEART"}"""),
+        ).andExpect(status().isCreated)
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].type").value("HEART"))
+            .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].count").value(1))
+            .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].reactedByViewer").value(true))
+    }
+
+    @Test
     fun `active member가 아니면 벽을 조회할 수 없다`() {
         val roomId = createRoomAsMina()
 

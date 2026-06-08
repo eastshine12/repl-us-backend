@@ -292,7 +292,13 @@ fun RoomWallResult.toResponse(videoStoragePort: VideoStoragePort): RoomWallRespo
                             height = preview.videoAsset.height,
                             fileSizeBytes = preview.videoAsset.fileSizeBytes,
                         ),
-                        reactionSummary = emptyList(),
+                        reactionSummary = preview.reactionSummary.map { summary ->
+                            WallReactionSummaryItemResponse(
+                                type = summary.type.name,
+                                count = summary.count,
+                                reactedByViewer = summary.reactedByViewer,
+                            )
+                        },
                         createdAt = preview.response.createdAt,
                         deletedAt = preview.response.deletedAt,
                     )
