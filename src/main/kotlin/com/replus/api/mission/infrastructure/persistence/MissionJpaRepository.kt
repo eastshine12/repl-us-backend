@@ -13,6 +13,8 @@ interface MissionJpaRepository : JpaRepository<MissionEntity, UUID> {
 
     fun findAllByRoomIdOrderByMissionDateDesc(roomId: UUID): List<MissionEntity>
 
+    fun findAllByMissionDateBeforeOrderByMissionDateAsc(cutoffDate: LocalDate): List<MissionEntity>
+
     fun findAllByRoomIdAndMissionDateBetweenOrderByMissionDateDesc(
         roomId: UUID,
         from: LocalDate,
@@ -39,6 +41,8 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
         status: MissionResponseStatus,
     ): List<MissionResponseEntity>
 
+    fun findAllByMissionIdIn(missionIds: Collection<UUID>): List<MissionResponseEntity>
+
     fun findByMissionIdAndMemberIdAndStatus(
         missionId: UUID,
         memberId: UUID,
@@ -58,7 +62,11 @@ interface VideoAssetJpaRepository : JpaRepository<VideoAssetEntity, UUID> {
     fun findByObjectKey(objectKey: String): VideoAssetEntity?
 }
 
-interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID>
+interface MissionReleaseStateJpaRepository : JpaRepository<MissionReleaseStateEntity, UUID> {
+    fun findAllByReleaseScheduledAtLessThanEqualAndReleasedAtIsNullAndFailedAtIsNull(
+        releaseScheduledAt: Instant,
+    ): List<MissionReleaseStateEntity>
+}
 
 interface ResponseReactionJpaRepository : JpaRepository<ResponseReactionEntity, UUID> {
     fun findAllByResponseIdIn(responseIds: Collection<UUID>): List<ResponseReactionEntity>

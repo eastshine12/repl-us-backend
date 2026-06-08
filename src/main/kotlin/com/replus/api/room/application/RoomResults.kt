@@ -4,6 +4,7 @@ import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionResponse
+import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.room.domain.model.InviteLink
 import com.replus.api.room.domain.model.Room
@@ -112,12 +113,21 @@ data class WallResponsePreviewResult(
     val author: User,
     val isMine: Boolean,
     val visibility: WallResponseVisibility,
-    val videoAsset: VideoAsset,
+    val videoAsset: VideoAsset?,
+    val reactionSummary: List<WallReactionSummaryResult>,
+)
+
+data class WallReactionSummaryResult(
+    val type: ReactionType,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 enum class WallFrameStatus {
+    EMPTY,
     READY,
     LOCKED,
+    DELETED,
 }
 
 enum class WallResponseVisibility {
