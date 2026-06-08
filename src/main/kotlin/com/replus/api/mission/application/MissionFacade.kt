@@ -15,6 +15,7 @@ import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.mission.domain.model.VideoAssetStatus
 import com.replus.api.mission.domain.policy.MissionEditPolicy
+import com.replus.api.mission.domain.policy.MissionResponseDeletionPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
@@ -47,6 +48,7 @@ class MissionFacade(
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
     private val missionResponseSubmissionPolicy: MissionResponseSubmissionPolicy,
+    private val missionResponseDeletionPolicy: MissionResponseDeletionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
@@ -216,6 +218,37 @@ class MissionFacade(
             response = response,
             videoAsset = videoAsset,
             author = userRepository.getById(member.userId),
+        )
+    }
+
+    @Transactional
+    fun deleteMissionResponse(
+        userId: UUID,
+        roomId: UUID,
+        responseId: UUID,
+    ): DeletedMissionResponseResult {
+        val member = requireActiveMember(userId, roomId)
+        val response = missionResponseRepository.findActiveByIdAndRoomId(responseId, roomId)
+            ?: throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        if (response.memberId != member.id) {
+            throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        }
+
+        val mission = requireTodayMission(response.missionId, roomId)
+        val releaseState = releaseIfDue(missionReleaseStateRepository.findByMissionId(mission.id))
+        missionResponseDeletionPolicy.validateCanDelete(
+            activeMemberCount = roomMemberRepository.countActiveByRoomId(roomId),
+            submittedCount = missionResponseRepository.countActiveByMissionId(mission.id),
+            releaseState = releaseState,
+        )
+
+        val now = clock.instant()
+        val deletedResponse = missionResponseRepository.save(response.delete(now))
+        return DeletedMissionResponseResult(
+            responseId = deletedResponse.id,
+            status = deletedResponse.status,
+            frameStatus = DeletedResponseFrameStatus.DELETED,
+            deletedAt = deletedResponse.deletedAt ?: now,
         )
     }
 

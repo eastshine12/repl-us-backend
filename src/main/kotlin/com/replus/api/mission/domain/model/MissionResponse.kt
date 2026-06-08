@@ -14,6 +14,12 @@ data class MissionResponse(
     val deletedAt: Instant?,
 ) {
     fun isActive(): Boolean = status == MissionResponseStatus.ACTIVE
+
+    fun delete(deletedAt: Instant): MissionResponse =
+        copy(
+            status = MissionResponseStatus.DELETED,
+            deletedAt = deletedAt,
+        )
 }
 
 enum class MissionResponseStatus {

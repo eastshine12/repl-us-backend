@@ -10,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -112,6 +113,77 @@ class MissionResponseApiTest {
             .andExpect(jsonPath("$.responses[0].video.objectKey").value(objectKey))
             .andExpect(jsonPath("$.responses[0].video.durationSeconds").value(3))
             .andExpect(jsonPath("$.responses[0].video.hasAudio").value(true))
+    }
+
+    @Test
+    fun `리플 삭제 후 오늘 화면과 방 요약은 내 미제출 상태로 돌아간다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val objectKey = createUploadUrl(roomId, missionId)["objectKey"].asString()
+        val responseId = submitResponse(roomId, missionId, objectKey)
+
+        // when
+        val result = mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isOk)
+            .andExpect(jsonPath("$.responseId").value(responseId))
+            .andExpect(jsonPath("$.status").value("DELETED"))
+            .andExpect(jsonPath("$.frameStatus").value("DELETED"))
+            .andExpect(jsonPath("$.deletedAt").exists())
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/today")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.viewer.hasSubmittedToday").value(false))
+            .andExpect(jsonPath("$.viewer.todayResponseId").doesNotExist())
+            .andExpect(jsonPath("$.participation.submittedCount").value(0))
+            .andExpect(jsonPath("$.responses").isEmpty)
+
+        mockMvc.perform(
+            get("/api/me")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.rooms[0].today.myResponseStatus").value("NOT_SUBMITTED"))
+            .andExpect(jsonPath("$.rooms[0].today.myResponseId").doesNotExist())
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.today.myResponseStatus").value("NOT_SUBMITTED"))
+            .andExpect(jsonPath("$.today.myResponseId").doesNotExist())
+    }
+
+    @Test
+    fun `전원 제출 후에는 리플 삭제가 거절된다`() {
+        // given
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        val responseId = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        submitResponseForToken(roomId, missionId, token = "dev-token-joon")
+        submitResponseForToken(roomId, missionId, token = "dev-token-ara")
+
+        // when
+        val result = mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+
+        // then
+        result.andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("RESPONSE_RELEASE_LOCKED"))
     }
 
     @Test
@@ -320,18 +392,25 @@ class MissionResponseApiTest {
         missionId: String,
         objectKey: String,
         token: String = "dev-token-mina",
-    ) {
-        mockMvc.perform(
-            post("/api/rooms/$roomId/missions/$missionId/responses")
-                .header("Authorization", "Bearer $token")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(missionResponseBody(objectKey)),
-        ).andExpect(status().isCreated)
-    }
+    ): String =
+        objectMapper
+            .readTree(
+                mockMvc.perform(
+                    post("/api/rooms/$roomId/missions/$missionId/responses")
+                        .header("Authorization", "Bearer $token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(missionResponseBody(objectKey)),
+                )
+                    .andExpect(status().isCreated)
+                    .andReturn()
+                    .response
+                    .contentAsString,
+            )["id"]
+            .asString()
 
-    private fun submitResponseForToken(roomId: String, missionId: String, token: String) {
+    private fun submitResponseForToken(roomId: String, missionId: String, token: String): String {
         val objectKey = createUploadUrl(roomId, missionId, token)["objectKey"].asString()
-        submitResponse(roomId, missionId, objectKey, token)
+        return submitResponse(roomId, missionId, objectKey, token)
     }
 
     private fun missionResponseBody(objectKey: String): String =
