@@ -3,17 +3,25 @@ package com.replus.api.mission.application
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
+import com.replus.api.mission.application.port.VideoStoragePort
+import com.replus.api.mission.application.port.VideoUploadVerification
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
+import com.replus.api.mission.domain.model.ReactionType
+import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.model.VideoAsset
+import com.replus.api.mission.domain.model.VideoAssetStatus
 import com.replus.api.mission.domain.policy.MissionEditPolicy
+import com.replus.api.mission.domain.policy.MissionResponseDeletionPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.ResponseCommentRepository
+import com.replus.api.mission.domain.repository.ResponseReactionRepository
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.policy.RoomAccessPolicy
 import com.replus.api.room.domain.repository.RoomMemberRepository
@@ -36,9 +44,13 @@ class MissionFacade(
     private val missionResponseRepository: MissionResponseRepository,
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
+    private val responseReactionRepository: ResponseReactionRepository,
+    private val responseCommentRepository: ResponseCommentRepository,
+    private val videoStoragePort: VideoStoragePort,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
     private val missionResponseSubmissionPolicy: MissionResponseSubmissionPolicy,
+    private val missionResponseDeletionPolicy: MissionResponseDeletionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
@@ -60,6 +72,9 @@ class MissionFacade(
         val videoAssetsById = videoAssetRepository
             .findAllByIds(responses.map { it.videoAssetId })
             .associateBy { it.id }
+        val reactionsByResponseId = responseReactionRepository
+            .findAllByResponseIds(responses.map { it.id })
+            .groupBy { it.responseId }
 
         return TodayResult(
             serverDate = today,
@@ -85,6 +100,10 @@ class MissionFacade(
                 TodayMissionResponseResult(
                     response = response,
                     videoAsset = videoAssetsById.getValue(response.videoAssetId),
+                    reactionSummary = reactionSummary(
+                        reactions = reactionsByResponseId[response.id] ?: emptyList(),
+                        viewerMemberId = currentMember!!.id,
+                    ),
                 )
             },
             releaseState = releaseState,
@@ -119,7 +138,7 @@ class MissionFacade(
         )
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun createResponseUploadUrl(
         userId: UUID,
         roomId: UUID,
@@ -139,14 +158,21 @@ class MissionFacade(
             memberId = member.id,
             contentType = metadata.contentType,
         )
-
-        return MissionResponseUploadUrlResult(
-            uploadUrl = "http://localhost:8080/mock-upload/$objectKey",
-            method = "PUT",
+        val uploadTarget = videoStoragePort.createUploadTarget(
             objectKey = objectKey,
-            requiredHeaders = mapOf("Content-Type" to metadata.contentType),
+            contentType = metadata.contentType,
             expiresAt = clock.instant().plus(UPLOAD_URL_TTL),
             maxFileSizeBytes = MAX_UPLOAD_FILE_SIZE_BYTES,
+        )
+        savePendingVideoAsset(objectKey, metadata, clock.instant())
+
+        return MissionResponseUploadUrlResult(
+            uploadUrl = uploadTarget.uploadUrl,
+            method = uploadTarget.method,
+            objectKey = uploadTarget.objectKey,
+            requiredHeaders = uploadTarget.requiredHeaders,
+            expiresAt = uploadTarget.expiresAt,
+            maxFileSizeBytes = uploadTarget.maxFileSizeBytes,
         )
     }
 
@@ -175,22 +201,13 @@ class MissionFacade(
         }
 
         val now = clock.instant()
-        val videoAsset = videoAssetRepository.save(
-            VideoAsset(
-                id = UUID.randomUUID(),
-                objectKey = command.objectKey,
-                contentType = command.contentType,
-                fileSizeBytes = command.fileSizeBytes,
-                durationSeconds = command.durationSeconds,
-                hasAudio = command.hasAudio,
-                width = command.width,
-                height = command.height,
-                thumbnailObjectKey = null,
-                createdAt = now,
-            ),
-        )
+        val videoAsset = markVideoAssetReady(command, now)
+        val existingResponse = missionResponseRepository.findByMissionIdAndMemberId(mission.id, member.id)
         val response = missionResponseRepository.save(
-            MissionResponse(
+            existingResponse?.reactivate(
+                videoAssetId = videoAsset.id,
+                createdAt = now,
+            ) ?: MissionResponse(
                 id = UUID.randomUUID(),
                 roomId = roomId,
                 missionId = mission.id,
@@ -209,6 +226,103 @@ class MissionFacade(
             author = userRepository.getById(member.userId),
         )
     }
+
+    @Transactional
+    fun deleteMissionResponse(
+        userId: UUID,
+        roomId: UUID,
+        responseId: UUID,
+    ): DeletedMissionResponseResult {
+        val member = requireActiveMember(userId, roomId)
+        val response = missionResponseRepository.findActiveByIdAndRoomId(responseId, roomId)
+            ?: throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        if (response.memberId != member.id) {
+            throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        }
+
+        val mission = requireTodayMission(response.missionId, roomId)
+        val releaseState = releaseIfDue(missionReleaseStateRepository.findByMissionId(mission.id))
+        missionResponseDeletionPolicy.validateCanDelete(
+            activeMemberCount = roomMemberRepository.countActiveByRoomId(roomId),
+            submittedCount = missionResponseRepository.countActiveByMissionId(mission.id),
+            releaseState = releaseState,
+        )
+
+        val now = clock.instant()
+        responseReactionRepository.deleteAllByResponseId(response.id)
+        responseCommentRepository.softDeleteByResponseId(response.id, now)
+        val deletedResponse = missionResponseRepository.save(response.delete(now))
+        return DeletedMissionResponseResult(
+            responseId = deletedResponse.id,
+            status = deletedResponse.status,
+            frameStatus = DeletedResponseFrameStatus.DELETED,
+            deletedAt = deletedResponse.deletedAt ?: now,
+        )
+    }
+
+    private fun savePendingVideoAsset(
+        objectKey: String,
+        metadata: MissionResponseUploadMetadata,
+        now: Instant,
+    ): VideoAsset {
+        val existing = videoAssetRepository.findByObjectKey(objectKey)
+
+        return videoAssetRepository.save(
+            VideoAsset(
+                id = existing?.id ?: UUID.randomUUID(),
+                objectKey = objectKey,
+                status = VideoAssetStatus.PENDING_UPLOAD,
+                contentType = metadata.contentType,
+                fileSizeBytes = metadata.fileSizeBytes,
+                durationSeconds = metadata.durationSeconds,
+                hasAudio = metadata.hasAudio,
+                width = metadata.width,
+                height = metadata.height,
+                thumbnailObjectKey = existing?.thumbnailObjectKey,
+                createdAt = existing?.createdAt ?: now,
+                uploadedAt = null,
+            ),
+        )
+    }
+
+    private fun markVideoAssetReady(command: MissionResponseCreateCommand, now: Instant): VideoAsset {
+        val videoAsset = videoAssetRepository.findByObjectKey(command.objectKey)
+            ?: throw CoreException(ErrorType.INVALID_REQUEST)
+        if (videoAsset.status != VideoAssetStatus.PENDING_UPLOAD) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+        if (!videoAsset.hasSameMetadata(command)) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+        val uploadVerification = videoStoragePort.verifyUploadedObject(
+            objectKey = command.objectKey,
+            expectedContentType = command.contentType,
+            expectedFileSizeBytes = command.fileSizeBytes,
+        )
+        if (!uploadVerification.matches(command)) {
+            throw CoreException(ErrorType.INVALID_REQUEST)
+        }
+
+        return videoAssetRepository.save(
+            videoAsset.copy(
+                status = VideoAssetStatus.READY,
+                uploadedAt = now,
+            ),
+        )
+    }
+
+    private fun VideoAsset.hasSameMetadata(command: MissionResponseCreateCommand): Boolean =
+        contentType == command.contentType &&
+            fileSizeBytes == command.fileSizeBytes &&
+            durationSeconds == command.durationSeconds &&
+            hasAudio == command.hasAudio &&
+            width == command.width &&
+            height == command.height
+
+    private fun VideoUploadVerification.matches(command: MissionResponseCreateCommand): Boolean =
+        exists &&
+            contentType == command.contentType &&
+            fileSizeBytes == command.fileSizeBytes
 
     private fun defaultMission(roomId: UUID, missionDate: LocalDate): Mission =
         Mission(
@@ -271,6 +385,23 @@ class MissionFacade(
             releaseState.copy(releasedAt = clock.instant()),
         )
     }
+
+    private fun reactionSummary(
+        reactions: List<ResponseReaction>,
+        viewerMemberId: UUID,
+    ): List<ReactionSummaryResult> =
+        ReactionType.entries.mapNotNull { type ->
+            val reactionsOfType = reactions.filter { it.type == type }
+            if (reactionsOfType.isEmpty()) {
+                null
+            } else {
+                ReactionSummaryResult(
+                    type = type,
+                    count = reactionsOfType.size,
+                    reactedByViewer = reactionsOfType.any { it.memberId == viewerMemberId },
+                )
+            }
+        }
 
     private fun extension(contentType: String): String =
         when (contentType.lowercase()) {

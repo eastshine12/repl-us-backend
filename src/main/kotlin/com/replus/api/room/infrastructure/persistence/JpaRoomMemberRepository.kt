@@ -14,6 +14,10 @@ class JpaRoomMemberRepository(
         roomMemberJpaRepository.findByRoomIdAndUserIdAndStatus(roomId, userId, RoomMemberStatus.ACTIVE)
             ?.toDomain()
 
+    override fun findActiveByIdAndRoomId(memberId: UUID, roomId: UUID): RoomMember? =
+        roomMemberJpaRepository.findByIdAndRoomIdAndStatus(memberId, roomId, RoomMemberStatus.ACTIVE)
+            ?.toDomain()
+
     override fun findByRoomIdAndUserId(roomId: UUID, userId: UUID): RoomMember? =
         roomMemberJpaRepository.findByRoomIdAndUserId(roomId, userId)?.toDomain()
 

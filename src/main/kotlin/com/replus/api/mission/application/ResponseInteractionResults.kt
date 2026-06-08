@@ -12,3 +12,12 @@ data class CreatedCommentResult(
     val comment: ResponseComment,
     val author: User,
 )
+
+data class CommentListResult(
+    val comments: List<CommentWithAuthorResult>,
+)
+
+data class CommentWithAuthorResult(
+    val comment: ResponseComment,
+    val author: User,
+)
