@@ -6,6 +6,8 @@ import java.util.UUID
 interface RoomMemberRepository {
     fun findActiveByRoomIdAndUserId(roomId: UUID, userId: UUID): RoomMember?
 
+    fun findActiveByIdAndRoomId(memberId: UUID, roomId: UUID): RoomMember?
+
     fun findByRoomIdAndUserId(roomId: UUID, userId: UUID): RoomMember?
 
     fun findActiveByRoomId(roomId: UUID): List<RoomMember>
