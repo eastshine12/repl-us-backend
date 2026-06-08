@@ -1,11 +1,21 @@
 package com.replus.api.mission.interfaces.rest
 
+import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
+import com.replus.api.mission.application.CreatedMissionResponseResult
+import com.replus.api.mission.application.DeletedMissionResponseResult
+import com.replus.api.mission.application.MissionResponseCreateCommand
+import com.replus.api.mission.application.MissionResponseUploadMetadata
+import com.replus.api.mission.application.MissionResponseUploadUrlResult
 import com.replus.api.mission.application.TodayResult
+import com.replus.api.mission.application.port.VideoStoragePort
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
-import com.replus.api.common.interfaces.rest.dto.UserSummaryResponse
+import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.room.domain.model.RoomRole
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.time.LocalDate
@@ -16,6 +26,46 @@ data class UpdateMissionRequest(
     @field:Size(max = 80)
     val prompt: String,
     val category: MissionCategory,
+)
+
+data class CreateUploadUrlRequest(
+    @field:NotBlank
+    val contentType: String,
+    @field:Positive
+    @field:Max(15_000_000)
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    @field:Min(1)
+    val width: Int?,
+    @field:Min(1)
+    val height: Int?,
+)
+
+data class UploadUrlResponse(
+    val uploadUrl: String,
+    val method: String,
+    val objectKey: String,
+    val requiredHeaders: Map<String, String>,
+    val expiresAt: Instant,
+    val maxFileSizeBytes: Long,
+)
+
+data class CreateMissionResponseRequest(
+    @field:NotBlank
+    val objectKey: String,
+    @field:NotBlank
+    val contentType: String,
+    @field:Positive
+    @field:Max(15_000_000)
+    val fileSizeBytes: Long,
+    val durationSeconds: Int,
+    val hasAudio: Boolean,
+    @field:Min(1)
+    val width: Int?,
+    @field:Min(1)
+    val height: Int?,
+    val clientCapturedAt: Instant?,
 )
 
 data class MissionResponseDto(
@@ -80,6 +130,27 @@ data class MissionResponsePreviewResponse(
     val deletedAt: Instant?,
 )
 
+data class MissionResponseCreatedResponse(
+    val id: UUID,
+    val roomId: UUID,
+    val missionId: UUID,
+    val memberId: UUID,
+    val author: UserSummaryResponse,
+    val status: String,
+    val visibility: String,
+    val video: VideoAssetResponse,
+    val reactionSummary: List<ReactionSummaryItemResponse>,
+    val createdAt: Instant,
+    val deletedAt: Instant?,
+)
+
+data class DeleteResponseResultResponse(
+    val responseId: UUID,
+    val status: String,
+    val frameStatus: String,
+    val deletedAt: Instant,
+)
+
 data class VideoAssetResponse(
     val objectKey: String,
     val playbackUrl: String,
@@ -120,7 +191,79 @@ fun Mission.toResponse(canEdit: Boolean): MissionResponseDto =
         createdAt = createdAt,
     )
 
-fun TodayResult.toResponse(): TodayResponse {
+fun CreateUploadUrlRequest.toMetadata(): MissionResponseUploadMetadata =
+    MissionResponseUploadMetadata(
+        contentType = contentType,
+        fileSizeBytes = fileSizeBytes,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+    )
+
+fun MissionResponseUploadUrlResult.toResponse(): UploadUrlResponse =
+    UploadUrlResponse(
+        uploadUrl = uploadUrl,
+        method = method,
+        objectKey = objectKey,
+        requiredHeaders = requiredHeaders,
+        expiresAt = expiresAt,
+        maxFileSizeBytes = maxFileSizeBytes,
+    )
+
+fun CreateMissionResponseRequest.toCommand(): MissionResponseCreateCommand =
+    MissionResponseCreateCommand(
+        objectKey = objectKey,
+        contentType = contentType,
+        fileSizeBytes = fileSizeBytes,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+        clientCapturedAt = clientCapturedAt,
+    )
+
+fun CreatedMissionResponseResult.toResponse(videoStoragePort: VideoStoragePort): MissionResponseCreatedResponse =
+    MissionResponseCreatedResponse(
+        id = response.id,
+        roomId = response.roomId,
+        missionId = response.missionId,
+        memberId = response.memberId,
+        author = UserSummaryResponse(
+            id = author.id,
+            displayName = author.displayName,
+            avatarUrl = author.avatarUrl,
+        ),
+        status = response.status.name,
+        visibility = "VISIBLE",
+        video = videoAsset.toResponse(videoStoragePort),
+        reactionSummary = emptyList(),
+        createdAt = response.createdAt,
+        deletedAt = response.deletedAt,
+    )
+
+fun DeletedMissionResponseResult.toResponse(): DeleteResponseResultResponse =
+    DeleteResponseResultResponse(
+        responseId = responseId,
+        status = status.name,
+        frameStatus = frameStatus.name,
+        deletedAt = deletedAt,
+    )
+
+fun VideoAsset.toResponse(videoStoragePort: VideoStoragePort): VideoAssetResponse =
+    VideoAssetResponse(
+        objectKey = objectKey,
+        playbackUrl = videoStoragePort.playbackUrl(objectKey),
+        thumbnailUrl = thumbnailObjectKey?.let { videoStoragePort.thumbnailUrl(it) },
+        contentType = contentType,
+        durationSeconds = durationSeconds,
+        hasAudio = hasAudio,
+        width = width,
+        height = height,
+        fileSizeBytes = fileSizeBytes,
+    )
+
+fun TodayResult.toResponse(videoStoragePort: VideoStoragePort): TodayResponse {
     val canEdit = currentMember.role == RoomRole.OWNER &&
         mission.editCount == 0 &&
         participation.submittedCount == 0
@@ -150,23 +293,32 @@ fun TodayResult.toResponse(): TodayResponse {
             allSubmitted = participation.allSubmitted,
         ),
         responses = responses.map {
-            val author = members.first { member -> member.member.id == it.memberId }.user
+            val response = it.response
+            val isMine = response.memberId == currentMember.id
+            val canSeeVideo = isMine || participation.canViewFriendResponses
+            val author = members.first { member -> member.member.id == response.memberId }.user
             MissionResponsePreviewResponse(
-                id = it.id,
-                missionId = it.missionId,
-                memberId = it.memberId,
+                id = response.id,
+                missionId = response.missionId,
+                memberId = response.memberId,
                 author = UserSummaryResponse(
                     id = author.id,
                     displayName = author.displayName,
                     avatarUrl = author.avatarUrl,
                 ),
-                isMine = it.memberId == currentMember.id,
-                status = it.status.name,
-                visibility = if (it.memberId == currentMember.id) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
-                video = null,
-                reactionSummary = emptyList(),
-                createdAt = it.createdAt,
-                deletedAt = it.deletedAt,
+                isMine = isMine,
+                status = response.status.name,
+                visibility = if (canSeeVideo) "VISIBLE" else "LOCKED_UNTIL_VIEWER_SUBMITS",
+                video = if (canSeeVideo) it.videoAsset.toResponse(videoStoragePort) else null,
+                reactionSummary = it.reactionSummary.map { summary ->
+                    ReactionSummaryItemResponse(
+                        type = summary.type.name,
+                        count = summary.count,
+                        reactedByViewer = summary.reactedByViewer,
+                    )
+                },
+                createdAt = response.createdAt,
+                deletedAt = response.deletedAt,
             )
         },
         todayFrames = emptyList(),

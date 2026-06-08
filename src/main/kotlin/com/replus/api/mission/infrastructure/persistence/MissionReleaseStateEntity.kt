@@ -35,4 +35,15 @@ class MissionReleaseStateEntity(
             releasedAt = releasedAt,
             failedAt = failedAt,
         )
+
+    companion object {
+        fun from(releaseState: MissionReleaseState): MissionReleaseStateEntity =
+            MissionReleaseStateEntity(
+                missionId = releaseState.missionId,
+                allSubmittedAt = releaseState.allSubmittedAt,
+                releaseScheduledAt = releaseState.releaseScheduledAt,
+                releasedAt = releaseState.releasedAt,
+                failedAt = releaseState.failedAt,
+            )
+    }
 }
