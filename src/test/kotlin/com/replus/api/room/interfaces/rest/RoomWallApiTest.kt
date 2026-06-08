@@ -2,6 +2,7 @@ package com.replus.api.room.interfaces.rest
 
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.VideoAsset
@@ -216,6 +217,36 @@ class RoomWallApiTest {
     }
 
     @Test
+    fun `벽 조회는 실패한 과거 mission의 partial video를 노출하지 않는다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val viewerMemberId = UUID.fromString(today["viewer"]["memberId"].asString())
+        val failedMissionDate = LocalDate.parse("2026-05-23")
+        val failedMission = createMission(roomId, failedMissionDate)
+
+        createResponse(roomId, failedMission.id, viewerMemberId)
+        markMissionFailed(failedMission.id)
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina")
+                .param("from", failedMissionDate.toString())
+                .param("to", failedMissionDate.toString()),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames.length()").value(3))
+            .andExpect(jsonPath("$.frames[0].missionId").value(failedMission.id.toString()))
+            .andExpect(jsonPath("$.frames[0].missionDate").value(failedMissionDate.toString()))
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("LOCKED"))
+            .andExpect(jsonPath("$.frames[0].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].response").doesNotExist())
+    }
+
+    @Test
     fun `벽 조회는 시작일이 종료일보다 늦으면 거절한다`() {
         val today = getToday()
         val roomId = today["room"]["id"].asString()
@@ -351,6 +382,18 @@ class RoomWallApiTest {
                 status = MissionResponseStatus.ACTIVE,
                 createdAt = Instant.parse("2026-05-23T09:15:05Z"),
                 deletedAt = null,
+            ),
+        )
+    }
+
+    private fun markMissionFailed(missionId: UUID) {
+        missionReleaseStateRepository.save(
+            MissionReleaseState(
+                missionId = missionId,
+                allSubmittedAt = null,
+                releaseScheduledAt = null,
+                releasedAt = null,
+                failedAt = Instant.parse("2026-05-24T00:00:00Z"),
             ),
         )
     }

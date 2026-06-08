@@ -319,12 +319,15 @@ class RoomFacade(
                     activeMembers.map { responseMember ->
                         val response = responsesByMissionAndMember[mission.id to responseMember.id]
                         val isMine = responseMember.id == currentMember.id
-                        val canView = isMine || releaseStatesByMissionId[mission.id]?.releasedAt?.let {
+                        val releaseState = releaseStatesByMissionId[mission.id]
+                        val isFailed = releaseState?.failedAt != null
+                        val canView = isMine || releaseState?.releasedAt?.let {
                             !clock.instant().isBefore(it)
                         } == true
                         val status = when {
                             response == null -> WallFrameStatus.EMPTY
                             response.status == MissionResponseStatus.DELETED -> WallFrameStatus.DELETED
+                            isFailed -> WallFrameStatus.LOCKED
                             canView -> WallFrameStatus.READY
                             else -> WallFrameStatus.LOCKED
                         }
@@ -420,7 +423,7 @@ class RoomFacade(
 
     private fun releaseIfDue(releaseState: MissionReleaseState): MissionReleaseState {
         val scheduledAt = releaseState.releaseScheduledAt ?: return releaseState
-        if (releaseState.releasedAt != null || clock.instant().isBefore(scheduledAt)) {
+        if (releaseState.failedAt != null || releaseState.releasedAt != null || clock.instant().isBefore(scheduledAt)) {
             return releaseState
         }
         return missionReleaseStateRepository.save(releaseState.copy(releasedAt = clock.instant()))
