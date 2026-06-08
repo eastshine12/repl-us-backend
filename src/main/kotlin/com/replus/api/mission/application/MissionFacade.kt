@@ -15,10 +15,12 @@ import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.mission.domain.model.VideoAssetStatus
 import com.replus.api.mission.domain.policy.MissionEditPolicy
+import com.replus.api.mission.domain.policy.MissionResponseDeletionPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.ResponseCommentRepository
 import com.replus.api.mission.domain.repository.ResponseReactionRepository
 import com.replus.api.mission.domain.repository.VideoAssetRepository
 import com.replus.api.room.domain.policy.RoomAccessPolicy
@@ -43,10 +45,12 @@ class MissionFacade(
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val videoAssetRepository: VideoAssetRepository,
     private val responseReactionRepository: ResponseReactionRepository,
+    private val responseCommentRepository: ResponseCommentRepository,
     private val videoStoragePort: VideoStoragePort,
     private val roomAccessPolicy: RoomAccessPolicy,
     private val missionEditPolicy: MissionEditPolicy,
     private val missionResponseSubmissionPolicy: MissionResponseSubmissionPolicy,
+    private val missionResponseDeletionPolicy: MissionResponseDeletionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
@@ -198,8 +202,12 @@ class MissionFacade(
 
         val now = clock.instant()
         val videoAsset = markVideoAssetReady(command, now)
+        val existingResponse = missionResponseRepository.findByMissionIdAndMemberId(mission.id, member.id)
         val response = missionResponseRepository.save(
-            MissionResponse(
+            existingResponse?.reactivate(
+                videoAssetId = videoAsset.id,
+                createdAt = now,
+            ) ?: MissionResponse(
                 id = UUID.randomUUID(),
                 roomId = roomId,
                 missionId = mission.id,
@@ -219,15 +227,45 @@ class MissionFacade(
         )
     }
 
+    @Transactional
+    fun deleteMissionResponse(
+        userId: UUID,
+        roomId: UUID,
+        responseId: UUID,
+    ): DeletedMissionResponseResult {
+        val member = requireActiveMember(userId, roomId)
+        val response = missionResponseRepository.findActiveByIdAndRoomId(responseId, roomId)
+            ?: throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        if (response.memberId != member.id) {
+            throw CoreException(ErrorType.RESOURCE_NOT_FOUND)
+        }
+
+        val mission = requireTodayMission(response.missionId, roomId)
+        val releaseState = releaseIfDue(missionReleaseStateRepository.findByMissionId(mission.id))
+        missionResponseDeletionPolicy.validateCanDelete(
+            activeMemberCount = roomMemberRepository.countActiveByRoomId(roomId),
+            submittedCount = missionResponseRepository.countActiveByMissionId(mission.id),
+            releaseState = releaseState,
+        )
+
+        val now = clock.instant()
+        responseReactionRepository.deleteAllByResponseId(response.id)
+        responseCommentRepository.softDeleteByResponseId(response.id, now)
+        val deletedResponse = missionResponseRepository.save(response.delete(now))
+        return DeletedMissionResponseResult(
+            responseId = deletedResponse.id,
+            status = deletedResponse.status,
+            frameStatus = DeletedResponseFrameStatus.DELETED,
+            deletedAt = deletedResponse.deletedAt ?: now,
+        )
+    }
+
     private fun savePendingVideoAsset(
         objectKey: String,
         metadata: MissionResponseUploadMetadata,
         now: Instant,
     ): VideoAsset {
         val existing = videoAssetRepository.findByObjectKey(objectKey)
-        if (existing?.status == VideoAssetStatus.READY) {
-            throw CoreException(ErrorType.INVALID_REQUEST)
-        }
 
         return videoAssetRepository.save(
             VideoAsset(
