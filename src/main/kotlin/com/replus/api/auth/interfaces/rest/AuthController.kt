@@ -1,6 +1,8 @@
 package com.replus.api.auth.interfaces.rest
 
 import com.replus.api.auth.application.AuthFacade
+import com.replus.api.common.interfaces.rest.dto.RoomTodayResponseStatus
+import com.replus.api.common.interfaces.rest.dto.RoomTodaySummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toResponse
 import com.replus.api.common.interfaces.rest.dto.toSummaryResponse
 import com.replus.api.common.security.BearerAuthSupport
@@ -51,6 +53,20 @@ class AuthController(
                     memberCount = it.memberCount,
                     currentMember = it.currentMember,
                     lastMissionDate = it.lastMissionDate,
+                    today = it.today?.let { today ->
+                        RoomTodaySummaryResponse(
+                            missionId = today.mission.id,
+                            missionDate = today.mission.missionDate,
+                            prompt = today.mission.prompt,
+                            category = today.mission.category,
+                            myResponseStatus = if (today.myResponseId == null) {
+                                RoomTodayResponseStatus.NOT_SUBMITTED
+                            } else {
+                                RoomTodayResponseStatus.SUBMITTED
+                            },
+                            myResponseId = today.myResponseId,
+                        )
+                    },
                 )
             },
         )
