@@ -9,6 +9,9 @@ spring:
       enabled: false
 
 replus:
+  web:
+    cors:
+      allowed-origins: ${REPLUS_WEB_CORS_ALLOWED_ORIGINS:}
   seed-dev-data: false
   mission:
     lifecycle:
