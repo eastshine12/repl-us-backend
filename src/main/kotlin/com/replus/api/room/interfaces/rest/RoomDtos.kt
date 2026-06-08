@@ -279,19 +279,21 @@ fun RoomWallResult.toResponse(videoStoragePort: VideoStoragePort): RoomWallRespo
                         isMine = preview.isMine,
                         status = preview.response.status.name,
                         visibility = preview.visibility.name,
-                        video = WallVideoAssetResponse(
-                            objectKey = preview.videoAsset.objectKey,
-                            playbackUrl = videoStoragePort.playbackUrl(preview.videoAsset.objectKey),
-                            thumbnailUrl = preview.videoAsset.thumbnailObjectKey?.let {
-                                videoStoragePort.thumbnailUrl(it)
-                            },
-                            contentType = preview.videoAsset.contentType,
-                            durationSeconds = preview.videoAsset.durationSeconds,
-                            hasAudio = preview.videoAsset.hasAudio,
-                            width = preview.videoAsset.width,
-                            height = preview.videoAsset.height,
-                            fileSizeBytes = preview.videoAsset.fileSizeBytes,
-                        ),
+                        video = preview.videoAsset?.let { videoAsset ->
+                            WallVideoAssetResponse(
+                                objectKey = videoAsset.objectKey,
+                                playbackUrl = videoStoragePort.playbackUrl(videoAsset.objectKey),
+                                thumbnailUrl = videoAsset.thumbnailObjectKey?.let {
+                                    videoStoragePort.thumbnailUrl(it)
+                                },
+                                contentType = videoAsset.contentType,
+                                durationSeconds = videoAsset.durationSeconds,
+                                hasAudio = videoAsset.hasAudio,
+                                width = videoAsset.width,
+                                height = videoAsset.height,
+                                fileSizeBytes = videoAsset.fileSizeBytes,
+                            )
+                        },
                         reactionSummary = preview.reactionSummary.map { summary ->
                             WallReactionSummaryItemResponse(
                                 type = summary.type.name,

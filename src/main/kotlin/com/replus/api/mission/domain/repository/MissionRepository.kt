@@ -9,6 +9,8 @@ interface MissionRepository {
 
     fun findAllByRoomId(roomId: UUID): List<Mission>
 
+    fun findAllByMissionDateBefore(cutoffDate: LocalDate): List<Mission>
+
     fun findAllByRoomIdAndMissionDateBetween(
         roomId: UUID,
         from: LocalDate,
