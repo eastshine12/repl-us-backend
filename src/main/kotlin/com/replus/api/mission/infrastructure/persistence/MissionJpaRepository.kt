@@ -39,6 +39,8 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
         status: MissionResponseStatus,
     ): List<MissionResponseEntity>
 
+    fun findAllByMissionIdIn(missionIds: Collection<UUID>): List<MissionResponseEntity>
+
     fun findByMissionIdAndMemberIdAndStatus(
         missionId: UUID,
         memberId: UUID,

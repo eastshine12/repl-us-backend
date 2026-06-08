@@ -5,6 +5,7 @@ import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import com.replus.api.mission.domain.model.MissionCategory
 import com.replus.api.mission.domain.model.MissionReleaseState
+import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.ReactionType
 import com.replus.api.mission.domain.model.ResponseReaction
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
@@ -283,21 +284,22 @@ class RoomFacade(
                 to = to ?: MAX_WALL_DATE,
             )
         }
-        val missionsById = missions.associateBy { it.id }
         val missionIds = missions.map { it.id }
-        val responses = missionResponseRepository.findActiveByMissionIds(missionIds)
-        val membersById = roomMemberRepository.findActiveByRoomId(roomId).associateBy { it.id }
+        val responses = missionResponseRepository.findAllByMissionIds(missionIds)
+        val activeMembers = roomMemberRepository.findActiveByRoomId(roomId).sortedBy { it.slotIndex }
+        val membersById = activeMembers.associateBy { it.id }
         val usersByMemberId = membersById.mapValues { userRepository.getById(it.value.userId) }
         val videoAssetsById = videoAssetRepository
-            .findAllByIds(responses.map { it.videoAssetId })
+            .findAllByIds(responses.filter { it.isActive() }.map { it.videoAssetId })
             .associateBy { it.id }
         val reactionsByResponseId = responseReactionRepository
-            .findAllByResponseIds(responses.map { it.id })
+            .findAllByResponseIds(responses.filter { it.isActive() }.map { it.id })
             .groupBy { it.responseId }
         val releaseStatesByMissionId = missionReleaseStateRepository
             .findAllByMissionIds(missionIds)
             .associateBy { it.missionId }
             .mapValues { releaseIfDue(it.value) }
+        val responsesByMissionAndMember = responses.associateBy { it.missionId to it.memberId }
         val todayMission = missionRepository.findByRoomIdAndMissionDate(roomId, today())
         val todayResponse = todayMission?.let {
             missionResponseRepository.findActiveByMissionIdAndMemberId(it.id, currentMember!!.id)
@@ -312,43 +314,66 @@ class RoomFacade(
                 todayResponseId = todayResponse?.id,
             ),
             viewport = WallViewportResult(width = 1600, height = 1200, minZoom = 0.45, maxZoom = 2.4),
-            frames = responses
-                .mapNotNull { response ->
-                    val mission = missionsById[response.missionId] ?: return@mapNotNull null
-                    val responseMember = membersById[response.memberId] ?: return@mapNotNull null
-                    val isMine = response.memberId == currentMember.id
-                    val canView = isMine || releaseStatesByMissionId[mission.id]?.releasedAt?.let {
-                        !clock.instant().isBefore(it)
-                    } == true
-                    WallFrameResult(
-                        id = frameId(mission.id, response.memberId),
-                        roomId = roomId,
-                        mission = mission,
-                        slotIndex = responseMember.slotIndex,
-                        status = if (canView) WallFrameStatus.READY else WallFrameStatus.LOCKED,
-                        position = framePosition(
-                            missionIndex = missions.indexOfFirst { it.id == mission.id },
+            frames = missions
+                .flatMapIndexed { missionIndex, mission ->
+                    activeMembers.map { responseMember ->
+                        val response = responsesByMissionAndMember[mission.id to responseMember.id]
+                        val isMine = responseMember.id == currentMember.id
+                        val canView = isMine || releaseStatesByMissionId[mission.id]?.releasedAt?.let {
+                            !clock.instant().isBefore(it)
+                        } == true
+                        val status = when {
+                            response == null -> WallFrameStatus.EMPTY
+                            response.status == MissionResponseStatus.DELETED -> WallFrameStatus.DELETED
+                            canView -> WallFrameStatus.READY
+                            else -> WallFrameStatus.LOCKED
+                        }
+                        WallFrameResult(
+                            id = frameId(mission.id, responseMember.id),
+                            roomId = roomId,
+                            mission = mission,
                             slotIndex = responseMember.slotIndex,
-                        ),
-                        response = if (canView) {
-                            WallResponsePreviewResult(
-                                response = response,
-                                author = usersByMemberId.getValue(response.memberId),
-                                isMine = isMine,
-                                visibility = WallResponseVisibility.VISIBLE,
-                                videoAsset = videoAssetsById.getValue(response.videoAssetId),
-                                reactionSummary = reactionSummary(
-                                    responseId = response.id,
-                                    reactionsByResponseId = reactionsByResponseId,
-                                    viewerMemberId = currentMember.id,
-                                ),
-                            )
-                        } else {
-                            null
-                        },
-                    )
+                            status = status,
+                            position = framePosition(
+                                missionIndex = missionIndex,
+                                slotIndex = responseMember.slotIndex,
+                            ),
+                            response = when (status) {
+                                WallFrameStatus.READY -> response?.let {
+                                    WallResponsePreviewResult(
+                                        response = it,
+                                        author = usersByMemberId.getValue(responseMember.id),
+                                        isMine = isMine,
+                                        visibility = WallResponseVisibility.VISIBLE,
+                                        videoAsset = videoAssetsById.getValue(it.videoAssetId),
+                                        reactionSummary = reactionSummary(
+                                            responseId = it.id,
+                                            reactionsByResponseId = reactionsByResponseId,
+                                            viewerMemberId = currentMember.id,
+                                        ),
+                                    )
+                                }
+                                WallFrameStatus.DELETED -> response?.let {
+                                    WallResponsePreviewResult(
+                                        response = it,
+                                        author = usersByMemberId.getValue(responseMember.id),
+                                        isMine = isMine,
+                                        visibility = WallResponseVisibility.VISIBLE,
+                                        videoAsset = null,
+                                        reactionSummary = emptyList(),
+                                    )
+                                }
+                                WallFrameStatus.EMPTY,
+                                WallFrameStatus.LOCKED,
+                                -> null
+                            },
+                        )
+                    }
                 }
-                .sortedWith(compareByDescending<WallFrameResult> { it.mission.missionDate }.thenBy { it.slotIndex }),
+                .sortedWith(
+                    compareByDescending<WallFrameResult> { it.mission.missionDate }
+                        .thenBy { it.slotIndex },
+                ),
         )
     }
 

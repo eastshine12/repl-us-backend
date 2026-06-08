@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -82,6 +83,56 @@ class RoomWallApiTest {
             .andExpect(jsonPath("$.frames[1].slotIndex").value(1))
             .andExpect(jsonPath("$.frames[1].status").value("LOCKED"))
             .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+    }
+
+    @Test
+    fun `벽 조회는 응답 없는 active member slot을 empty frame으로 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames.length()").value(3))
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("READY"))
+            .andExpect(jsonPath("$.frames[1].slotIndex").value(1))
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[2].slotIndex").value(2))
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].response").doesNotExist())
+    }
+
+    @Test
+    fun `벽 조회는 삭제한 리플을 deleted frame과 빈 video로 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val response = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        val responseId = response["id"].asString()
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("DELETED"))
+            .andExpect(jsonPath("$.frames[0].response.id").value(responseId))
+            .andExpect(jsonPath("$.frames[0].response.status").value("DELETED"))
+            .andExpect(jsonPath("$.frames[0].response.video").doesNotExist())
+            .andExpect(jsonPath("$.frames[0].response.deletedAt").exists())
     }
 
     @Test
@@ -152,12 +203,16 @@ class RoomWallApiTest {
                 .header("Authorization", "Bearer dev-token-mina")
                 .param("from", historicalMissionDate.toString())
                 .param("to", historicalMissionDate.toString()),
-        )
+            )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.frames.length()").value(1))
+            .andExpect(jsonPath("$.frames.length()").value(3))
             .andExpect(jsonPath("$.frames[0].missionId").value(historicalMission.id.toString()))
             .andExpect(jsonPath("$.frames[0].missionDate").value(historicalMissionDate.toString()))
             .andExpect(jsonPath("$.frames[0].response.id").value(historicalResponse.id.toString()))
+            .andExpect(jsonPath("$.frames[1].missionId").value(historicalMission.id.toString()))
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].missionId").value(historicalMission.id.toString()))
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
     }
 
     @Test
