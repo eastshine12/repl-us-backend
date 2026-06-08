@@ -54,6 +54,11 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,storage
+        liveness:
+          include: livenessState
   health:
     livenessstate:
       enabled: true
