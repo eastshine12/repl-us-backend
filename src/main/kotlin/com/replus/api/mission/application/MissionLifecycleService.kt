@@ -19,9 +19,9 @@ class MissionLifecycleService(
     private val missionReleaseStateRepository: MissionReleaseStateRepository,
     private val roomMemberRepository: RoomMemberRepository,
     private val clock: Clock,
-) {
+) : MissionLifecycleFailureUseCase {
     @Transactional
-    fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult {
+    override fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult {
         val now = clock.instant()
         val failedMissionIds = missionRepository
             .findAllByMissionDateBefore(cutoffDate)
@@ -62,3 +62,7 @@ class MissionLifecycleService(
 data class MissionLifecycleFailureResult(
     val failedMissionIds: List<UUID>,
 )
+
+fun interface MissionLifecycleFailureUseCase {
+    fun failIncompleteMissionsBefore(cutoffDate: LocalDate): MissionLifecycleFailureResult
+}

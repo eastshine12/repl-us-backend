@@ -22,6 +22,12 @@ spring:
 replus:
   web-base-url: ${REPLUS_WEB_BASE_URL:http://localhost:3000}
   seed-dev-data: ${REPLUS_SEED_DEV_DATA:true}
+  mission:
+    lifecycle:
+      zone: ${REPLUS_MISSION_LIFECYCLE_ZONE:Asia/Seoul}
+      scheduler:
+        enabled: ${REPLUS_MISSION_LIFECYCLE_SCHEDULER_ENABLED:false}
+        fail-incomplete-cron: ${REPLUS_MISSION_LIFECYCLE_FAIL_INCOMPLETE_CRON:0 5 0 * * *}
   storage:
     mode: ${REPLUS_STORAGE_MODE:local}
     local:
