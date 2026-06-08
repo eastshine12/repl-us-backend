@@ -113,7 +113,7 @@ data class WallResponsePreviewResult(
     val author: User,
     val isMine: Boolean,
     val visibility: WallResponseVisibility,
-    val videoAsset: VideoAsset,
+    val videoAsset: VideoAsset?,
     val reactionSummary: List<WallReactionSummaryResult>,
 )
 
@@ -124,8 +124,10 @@ data class WallReactionSummaryResult(
 )
 
 enum class WallFrameStatus {
+    EMPTY,
     READY,
     LOCKED,
+    DELETED,
 }
 
 enum class WallResponseVisibility {

@@ -2,6 +2,7 @@ package com.replus.api.room.interfaces.rest
 
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionReleaseState
 import com.replus.api.mission.domain.model.MissionResponse
 import com.replus.api.mission.domain.model.MissionResponseStatus
 import com.replus.api.mission.domain.model.VideoAsset
@@ -16,6 +17,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.context.jdbc.Sql
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -82,6 +84,56 @@ class RoomWallApiTest {
             .andExpect(jsonPath("$.frames[1].slotIndex").value(1))
             .andExpect(jsonPath("$.frames[1].status").value("LOCKED"))
             .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+    }
+
+    @Test
+    fun `벽 조회는 응답 없는 active member slot을 empty frame으로 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+
+        submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames.length()").value(3))
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("READY"))
+            .andExpect(jsonPath("$.frames[1].slotIndex").value(1))
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[2].slotIndex").value(2))
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].response").doesNotExist())
+    }
+
+    @Test
+    fun `벽 조회는 삭제한 리플을 deleted frame과 빈 video로 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val response = submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+        val responseId = response["id"].asString()
+
+        mockMvc.perform(
+            delete("/api/rooms/$roomId/responses/$responseId")
+                .header("Authorization", "Bearer dev-token-mina"),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina"),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("DELETED"))
+            .andExpect(jsonPath("$.frames[0].response.id").value(responseId))
+            .andExpect(jsonPath("$.frames[0].response.status").value("DELETED"))
+            .andExpect(jsonPath("$.frames[0].response.video").doesNotExist())
+            .andExpect(jsonPath("$.frames[0].response.deletedAt").exists())
     }
 
     @Test
@@ -152,12 +204,46 @@ class RoomWallApiTest {
                 .header("Authorization", "Bearer dev-token-mina")
                 .param("from", historicalMissionDate.toString())
                 .param("to", historicalMissionDate.toString()),
-        )
+            )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.frames.length()").value(1))
+            .andExpect(jsonPath("$.frames.length()").value(3))
             .andExpect(jsonPath("$.frames[0].missionId").value(historicalMission.id.toString()))
             .andExpect(jsonPath("$.frames[0].missionDate").value(historicalMissionDate.toString()))
             .andExpect(jsonPath("$.frames[0].response.id").value(historicalResponse.id.toString()))
+            .andExpect(jsonPath("$.frames[1].missionId").value(historicalMission.id.toString()))
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].missionId").value(historicalMission.id.toString()))
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
+    }
+
+    @Test
+    fun `벽 조회는 실패한 과거 mission의 partial video를 노출하지 않는다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val viewerMemberId = UUID.fromString(today["viewer"]["memberId"].asString())
+        val failedMissionDate = LocalDate.parse("2026-05-23")
+        val failedMission = createMission(roomId, failedMissionDate)
+
+        createResponse(roomId, failedMission.id, viewerMemberId)
+        markMissionFailed(failedMission.id)
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina")
+                .param("from", failedMissionDate.toString())
+                .param("to", failedMissionDate.toString()),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames.length()").value(3))
+            .andExpect(jsonPath("$.frames[0].missionId").value(failedMission.id.toString()))
+            .andExpect(jsonPath("$.frames[0].missionDate").value(failedMissionDate.toString()))
+            .andExpect(jsonPath("$.frames[0].slotIndex").value(0))
+            .andExpect(jsonPath("$.frames[0].status").value("LOCKED"))
+            .andExpect(jsonPath("$.frames[0].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[1].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[1].response").doesNotExist())
+            .andExpect(jsonPath("$.frames[2].status").value("EMPTY"))
+            .andExpect(jsonPath("$.frames[2].response").doesNotExist())
     }
 
     @Test
@@ -296,6 +382,18 @@ class RoomWallApiTest {
                 status = MissionResponseStatus.ACTIVE,
                 createdAt = Instant.parse("2026-05-23T09:15:05Z"),
                 deletedAt = null,
+            ),
+        )
+    }
+
+    private fun markMissionFailed(missionId: UUID) {
+        missionReleaseStateRepository.save(
+            MissionReleaseState(
+                missionId = missionId,
+                allSubmittedAt = null,
+                releaseScheduledAt = null,
+                releasedAt = null,
+                failedAt = Instant.parse("2026-05-24T00:00:00Z"),
             ),
         )
     }
