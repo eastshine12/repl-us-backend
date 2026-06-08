@@ -14,4 +14,8 @@ class JpaResponseReactionRepository(
 
     override fun findAllByResponseIds(responseIds: Collection<UUID>): List<ResponseReaction> =
         responseReactionJpaRepository.findAllByResponseIdIn(responseIds).map { it.toDomain() }
+
+    override fun deleteAllByResponseId(responseId: UUID) {
+        responseReactionJpaRepository.deleteAllByResponseId(responseId)
+    }
 }

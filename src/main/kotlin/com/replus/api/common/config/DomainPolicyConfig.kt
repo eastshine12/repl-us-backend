@@ -1,6 +1,7 @@
 package com.replus.api.common.config
 
 import com.replus.api.mission.domain.policy.MissionEditPolicy
+import com.replus.api.mission.domain.policy.MissionResponseDeletionPolicy
 import com.replus.api.mission.domain.policy.MissionResponseSubmissionPolicy
 import com.replus.api.room.domain.policy.RoomAccessPolicy
 import com.replus.api.room.domain.policy.RoomCapacityPolicy
@@ -26,4 +27,8 @@ class DomainPolicyConfig {
     @Bean
     fun missionResponseSubmissionPolicy(): MissionResponseSubmissionPolicy =
         MissionResponseSubmissionPolicy()
+
+    @Bean
+    fun missionResponseDeletionPolicy(): MissionResponseDeletionPolicy =
+        MissionResponseDeletionPolicy()
 }
