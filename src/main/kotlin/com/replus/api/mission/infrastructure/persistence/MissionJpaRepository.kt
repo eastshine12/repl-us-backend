@@ -13,6 +13,8 @@ interface MissionJpaRepository : JpaRepository<MissionEntity, UUID> {
 
     fun findAllByRoomIdOrderByMissionDateDesc(roomId: UUID): List<MissionEntity>
 
+    fun findAllByMissionDateBeforeOrderByMissionDateAsc(cutoffDate: LocalDate): List<MissionEntity>
+
     fun findAllByRoomIdAndMissionDateBetweenOrderByMissionDateDesc(
         roomId: UUID,
         from: LocalDate,
