@@ -1,10 +1,12 @@
 package com.replus.api.auth.application
 
 import com.replus.api.auth.domain.model.User
+import com.replus.api.mission.domain.model.Mission
 import com.replus.api.room.domain.model.Room
 import com.replus.api.room.domain.model.RoomMember
 import java.time.Instant
 import java.time.LocalDate
+import java.util.UUID
 
 data class AuthSessionResult(
     val accessToken: String,
@@ -22,4 +24,10 @@ data class RoomSummaryResult(
     val memberCount: Int,
     val currentMember: RoomMember,
     val lastMissionDate: LocalDate?,
+    val today: RoomTodaySummaryResult?,
+)
+
+data class RoomTodaySummaryResult(
+    val mission: Mission,
+    val myResponseId: UUID?,
 )

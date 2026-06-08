@@ -15,6 +15,7 @@ class ObjectStorageVideoStorageAdapter(
 
     init {
         require(bucket.isNotBlank()) { "Object storage bucket is required" }
+        properties.requireValidPublicBaseUrl()
     }
 
     override fun createUploadTarget(
@@ -37,7 +38,7 @@ class ObjectStorageVideoStorageAdapter(
             uploadUrl = presigned.uploadUrl,
             method = "PUT",
             objectKey = objectKey,
-            requiredHeaders = presigned.requiredHeaders + ("Content-Type" to contentType),
+            requiredHeaders = presigned.requiredHeaders.withoutContentType() + ("Content-Type" to contentType),
             expiresAt = expiresAt,
             maxFileSizeBytes = maxFileSizeBytes,
         )
@@ -72,4 +73,7 @@ class ObjectStorageVideoStorageAdapter(
 
     private fun appendObjectKey(baseUrl: String, objectKey: String): String =
         "${baseUrl.trimEnd('/')}/${objectKey.trimStart('/')}"
+
+    private fun Map<String, String>.withoutContentType(): Map<String, String> =
+        filterKeys { !it.equals("Content-Type", ignoreCase = true) }
 }
