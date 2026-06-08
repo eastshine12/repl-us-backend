@@ -200,8 +200,12 @@ class MissionFacade(
 
         val now = clock.instant()
         val videoAsset = markVideoAssetReady(command, now)
+        val existingResponse = missionResponseRepository.findByMissionIdAndMemberId(mission.id, member.id)
         val response = missionResponseRepository.save(
-            MissionResponse(
+            existingResponse?.reactivate(
+                videoAssetId = videoAsset.id,
+                createdAt = now,
+            ) ?: MissionResponse(
                 id = UUID.randomUUID(),
                 roomId = roomId,
                 missionId = mission.id,
@@ -258,9 +262,6 @@ class MissionFacade(
         now: Instant,
     ): VideoAsset {
         val existing = videoAssetRepository.findByObjectKey(objectKey)
-        if (existing?.status == VideoAssetStatus.READY) {
-            throw CoreException(ErrorType.INVALID_REQUEST)
-        }
 
         return videoAssetRepository.save(
             VideoAsset(

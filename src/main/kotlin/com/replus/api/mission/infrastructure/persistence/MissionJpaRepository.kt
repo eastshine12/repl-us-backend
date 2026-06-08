@@ -27,6 +27,8 @@ interface MissionResponseJpaRepository : JpaRepository<MissionResponseEntity, UU
         status: MissionResponseStatus,
     ): MissionResponseEntity?
 
+    fun findByMissionIdAndMemberId(missionId: UUID, memberId: UUID): MissionResponseEntity?
+
     fun findByIdAndRoomIdAndStatus(
         id: UUID,
         roomId: UUID,
