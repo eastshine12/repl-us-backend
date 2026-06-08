@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class StorageProperties(
     val mode: StorageMode = StorageMode.LOCAL,
     val local: LocalStorageProperties = LocalStorageProperties(),
+    val objectStorage: ObjectStorageProperties = ObjectStorageProperties(),
 )
 
 enum class StorageMode {
@@ -16,4 +17,12 @@ enum class StorageMode {
 data class LocalStorageProperties(
     val uploadBaseUrl: String = "http://localhost:8080/mock-upload",
     val playbackBaseUrl: String = "http://localhost:8080/mock-playback",
+)
+
+data class ObjectStorageProperties(
+    val bucket: String = "",
+    val publicBaseUrl: String = "http://localhost:8080/mock-playback",
+    val region: String = "auto",
+    val endpoint: String = "",
+    val pathStyleAccessEnabled: Boolean = false,
 )
