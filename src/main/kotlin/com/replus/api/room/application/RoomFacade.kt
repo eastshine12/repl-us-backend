@@ -272,6 +272,7 @@ class RoomFacade(
         roomRepository.getById(roomId)
         val currentMember = roomMemberRepository.findActiveByRoomIdAndUserId(roomId, userId)
         roomAccessPolicy.requireActiveMember(currentMember)
+        validateWallDateRange(from, to)
 
         val missions = if (from == null && to == null) {
             missionRepository.findAllByRoomId(roomId)
@@ -385,6 +386,12 @@ class RoomFacade(
             height = 160.0,
             rotation = (slotIndex % 5 - 2) * 1.5,
         )
+
+    private fun validateWallDateRange(from: LocalDate?, to: LocalDate?) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw CoreException(ErrorType.INVALID_REQUEST, "from must be on or before to.")
+        }
+    }
 
     private fun releaseIfDue(releaseState: MissionReleaseState): MissionReleaseState {
         val scheduledAt = releaseState.releaseScheduledAt ?: return releaseState

@@ -1,6 +1,14 @@
 package com.replus.api.room.interfaces.rest
 
+import com.replus.api.mission.domain.model.Mission
+import com.replus.api.mission.domain.model.MissionCategory
+import com.replus.api.mission.domain.model.MissionResponse
+import com.replus.api.mission.domain.model.MissionResponseStatus
+import com.replus.api.mission.domain.model.VideoAsset
 import com.replus.api.mission.domain.repository.MissionReleaseStateRepository
+import com.replus.api.mission.domain.repository.MissionRepository
+import com.replus.api.mission.domain.repository.MissionResponseRepository
+import com.replus.api.mission.domain.repository.VideoAssetRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -15,6 +23,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 @SpringBootTest
@@ -38,6 +47,15 @@ class RoomWallApiTest {
 
     @Autowired
     private lateinit var missionReleaseStateRepository: MissionReleaseStateRepository
+
+    @Autowired
+    private lateinit var missionRepository: MissionRepository
+
+    @Autowired
+    private lateinit var videoAssetRepository: VideoAssetRepository
+
+    @Autowired
+    private lateinit var missionResponseRepository: MissionResponseRepository
 
     @Test
     fun `벽 조회는 내 리플은 준비 상태로 친구 리플은 공개 전 잠금 상태로 내려준다`() {
@@ -115,6 +133,46 @@ class RoomWallApiTest {
             .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].type").value("HEART"))
             .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].count").value(1))
             .andExpect(jsonPath("$.frames[0].response.reactionSummary[0].reactedByViewer").value(true))
+    }
+
+    @Test
+    fun `벽 조회는 mission date 범위 안의 frame만 내려준다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+        val missionId = today["mission"]["id"].asString()
+        val viewerMemberId = UUID.fromString(today["viewer"]["memberId"].asString())
+        val historicalMissionDate = LocalDate.parse("2026-05-23")
+        val historicalMission = createMission(roomId, historicalMissionDate)
+        val historicalResponse = createResponse(roomId, historicalMission.id, viewerMemberId)
+
+        submitResponseForToken(roomId, missionId, token = "dev-token-mina")
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina")
+                .param("from", historicalMissionDate.toString())
+                .param("to", historicalMissionDate.toString()),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.frames.length()").value(1))
+            .andExpect(jsonPath("$.frames[0].missionId").value(historicalMission.id.toString()))
+            .andExpect(jsonPath("$.frames[0].missionDate").value(historicalMissionDate.toString()))
+            .andExpect(jsonPath("$.frames[0].response.id").value(historicalResponse.id.toString()))
+    }
+
+    @Test
+    fun `벽 조회는 시작일이 종료일보다 늦으면 거절한다`() {
+        val today = getToday()
+        val roomId = today["room"]["id"].asString()
+
+        mockMvc.perform(
+            get("/api/rooms/$roomId/wall")
+                .header("Authorization", "Bearer dev-token-mina")
+                .param("from", "2026-05-25")
+                .param("to", "2026-05-24"),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     @Test
@@ -197,6 +255,50 @@ class RoomWallApiTest {
                 .response
                 .contentAsString,
         )
+
+    private fun createMission(roomId: String, missionDate: LocalDate): Mission =
+        missionRepository.save(
+            Mission(
+                id = UUID.randomUUID(),
+                roomId = UUID.fromString(roomId),
+                missionDate = missionDate,
+                prompt = "어제의 3초를 남겨줘",
+                category = MissionCategory.OBSERVATION,
+                editCount = 0,
+                editedByMemberId = null,
+                editedAt = null,
+                createdAt = Instant.parse("2026-05-23T09:00:00Z"),
+            ),
+        )
+
+    private fun createResponse(roomId: String, missionId: UUID, memberId: UUID): MissionResponse {
+        val videoAsset = videoAssetRepository.save(
+            VideoAsset(
+                id = UUID.randomUUID(),
+                objectKey = "rooms/$roomId/missions/$missionId/members/$memberId.webm",
+                contentType = "video/webm",
+                fileSizeBytes = 842120,
+                durationSeconds = 3,
+                hasAudio = true,
+                width = 720,
+                height = 1280,
+                thumbnailObjectKey = null,
+                createdAt = Instant.parse("2026-05-23T09:15:00Z"),
+            ),
+        )
+        return missionResponseRepository.save(
+            MissionResponse(
+                id = UUID.randomUUID(),
+                roomId = UUID.fromString(roomId),
+                missionId = missionId,
+                memberId = memberId,
+                videoAssetId = videoAsset.id,
+                status = MissionResponseStatus.ACTIVE,
+                createdAt = Instant.parse("2026-05-23T09:15:05Z"),
+                deletedAt = null,
+            ),
+        )
+    }
 
     private fun missionResponseBody(objectKey: String): String =
         """
