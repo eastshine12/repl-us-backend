@@ -27,6 +27,16 @@ class ProductionProfileGuardConfig {
             require(!environment.getBooleanProperty("spring.h2.console.enabled", defaultValue = false)) {
                 "spring.h2.console.enabled must be false when the prod profile is active"
             }
+            val webBaseUrl = environment.getProperty("replus.web-base-url").orEmpty().trim()
+            require(webBaseUrl.isNotBlank()) {
+                "replus.web-base-url is required when the prod profile is active"
+            }
+            require(!webBaseUrl.contains("localhost", ignoreCase = true) && !webBaseUrl.contains("127.0.0.1")) {
+                "Prod profile must not use localhost as replus.web-base-url"
+            }
+            require(webBaseUrl.startsWith("https://", ignoreCase = true)) {
+                "Prod profile requires an HTTPS replus.web-base-url"
+            }
             val corsAllowedOrigins = environment.getCommaSeparatedProperty("replus.web.cors.allowed-origins")
             require(corsAllowedOrigins.isNotEmpty()) {
                 "replus.web.cors.allowed-origins is required when the prod profile is active"

@@ -9,6 +9,7 @@ spring:
       enabled: false
 
 replus:
+  web-base-url: ${REPLUS_WEB_BASE_URL:}
   web:
     cors:
       allowed-origins: ${REPLUS_WEB_CORS_ALLOWED_ORIGINS:}
