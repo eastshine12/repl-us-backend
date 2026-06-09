@@ -50,6 +50,9 @@ management:
     web:
       exposure:
         include: health,info
+  info:
+    env:
+      enabled: true
   endpoint:
     health:
       probes:
@@ -68,3 +71,9 @@ management:
 logging:
   level:
     com.replus.api: INFO
+
+info:
+  app:
+    name: repl.us backend
+    description: Private daily 3-second video room API
+    version: ${APP_VERSION:0.1.0-SNAPSHOT}

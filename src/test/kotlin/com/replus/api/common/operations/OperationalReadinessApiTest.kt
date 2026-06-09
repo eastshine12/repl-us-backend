@@ -44,4 +44,13 @@ class OperationalReadinessApiTest {
             .andExpect(jsonPath("$.components.storage.details.uploadBaseUrlConfigured").value(true))
             .andExpect(jsonPath("$.components.storage.details.playbackBaseUrlConfigured").value(true))
     }
+
+    @Test
+    fun `info endpoint exposes public application metadata`() {
+        mockMvc.perform(get("/actuator/info"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.app.name").value("repl.us backend"))
+            .andExpect(jsonPath("$.app.description").value("Private daily 3-second video room API"))
+            .andExpect(jsonPath("$.app.version").value("0.1.0-SNAPSHOT"))
+    }
 }
