@@ -124,6 +124,10 @@ Common first-deploy failures:
 - `SPRING_DATASOURCE_URL is required`: confirm `DATABASE_URL` is present on the
   web service, or set the Spring datasource values manually.
 - `Prod profile must not use an H2 datasource`: replace the local H2 URL.
+- `replus.web-base-url is required`: set `REPLUS_WEB_BASE_URL` to the HTTPS
+  frontend origin used for invite links.
+- `Prod profile requires an HTTPS replus.web-base-url`: replace local or HTTP
+  frontend URLs with the HTTPS frontend origin.
 - `replus.web.cors.allowed-origins is required`: set explicit frontend origins.
 - Readiness is down with a `db` component failure: check database network access
   and credentials.
@@ -142,6 +146,7 @@ Required for production startup:
 
 ```text
 DATABASE_URL=<postgresql-connection-string>
+REPLUS_WEB_BASE_URL=<https-frontend-origin>
 REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 ```
 
@@ -158,6 +163,7 @@ The `prod` profile fails fast when:
 
 - `SPRING_DATASOURCE_URL` is blank.
 - The datasource URL points to H2.
+- The web base URL is blank, points to localhost, or is not HTTPS.
 - Development seed data is enabled.
 - The H2 console is enabled.
 - CORS origins are blank.

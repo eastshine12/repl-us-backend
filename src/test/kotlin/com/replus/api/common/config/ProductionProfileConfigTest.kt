@@ -16,6 +16,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
                 "replus.web.cors.allowed-origins=https://app.example.test",
             )
             .run { context ->
@@ -39,6 +40,8 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url= ",
+                "replus.web-base-url=https://app.example.test",
+                "replus.web.cors.allowed-origins=https://app.example.test",
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -53,6 +56,8 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:h2:mem:replus",
+                "replus.web-base-url=https://app.example.test",
+                "replus.web.cors.allowed-origins=https://app.example.test",
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -67,6 +72,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
                 "replus.web.cors.allowed-origins=https://app.example.test",
                 "replus.seed-dev-data=true",
             )
@@ -83,6 +89,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
                 "replus.web.cors.allowed-origins=https://app.example.test",
                 "spring.h2.console.enabled=true",
             )
@@ -99,6 +106,7 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
                 "replus.web.cors.allowed-origins= ",
             )
             .run { context ->
@@ -116,12 +124,76 @@ class ProductionProfileConfigTest {
             .withPropertyValues(
                 "spring.profiles.active=prod",
                 "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
                 "replus.web.cors.allowed-origins=https://app.example.test,*",
             )
             .run { context ->
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
                     .hasMessageContaining("Prod profile must not allow wildcard CORS origins")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when web base url is blank`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url= ",
+                "replus.web.cors.allowed-origins=https://app.example.test",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("replus.web-base-url is required when the prod profile is active")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when web base url is not configured`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web.cors.allowed-origins=https://app.example.test",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("replus.web-base-url is required when the prod profile is active")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when web base url points to localhost`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=http://localhost:3000",
+                "replus.web.cors.allowed-origins=https://app.example.test",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Prod profile must not use localhost as replus.web-base-url")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when web base url is not https`() {
+        contextRunner
+            .withPropertyValues(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=http://app.example.test",
+                "replus.web.cors.allowed-origins=https://app.example.test",
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Prod profile requires an HTTPS replus.web-base-url")
             }
     }
 }
