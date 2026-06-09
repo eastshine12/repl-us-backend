@@ -28,6 +28,7 @@ class SmokeApiScriptTest {
         assertThat(result.output).contains(
             "liveness: ok",
             "readiness: ok",
+            "info: ok",
             "guest auth: ok",
             "current user: ok",
         )
@@ -59,6 +60,9 @@ class SmokeApiScriptTest {
         }
         httpServer.createContext("/actuator/health/readiness") { exchange ->
             exchange.respond("""{"status":"UP"}""")
+        }
+        httpServer.createContext("/actuator/info") { exchange ->
+            exchange.respond("""{"app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"}}""")
         }
         httpServer.createContext("/api/auth/guest") { exchange ->
             assertThat(exchange.requestMethod).isEqualTo("POST")

@@ -10,6 +10,7 @@ Usage:
 Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
+  - /actuator/info
   - /api/auth/guest and /api/me when --with-guest-auth is provided
 
 Examples:
@@ -87,6 +88,13 @@ extract_access_token() {
 
 assert_status_up "liveness" "/actuator/health/liveness"
 assert_status_up "readiness" "/actuator/health/readiness"
+
+info_body="$(request GET "/actuator/info")"
+if [[ "$info_body" != *'"name":"repl.us backend"'* ]]; then
+  echo "info: app metadata missing from response" >&2
+  exit 1
+fi
+echo "info: ok"
 
 if [[ "$with_guest_auth" == "true" ]]; then
   auth_body="$(

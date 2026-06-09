@@ -19,6 +19,7 @@ The application exposes:
 
 - Liveness: `/actuator/health/liveness`
 - Readiness: `/actuator/health/readiness`
+- Public application metadata: `/actuator/info`
 
 Readiness includes the application readiness state, database health, and storage
 configuration health.
@@ -241,6 +242,7 @@ After deployment, check:
 ```bash
 curl -fsS https://<api-host>/actuator/health/liveness
 curl -fsS https://<api-host>/actuator/health/readiness
+curl -fsS https://<api-host>/actuator/info
 ```
 
 Expected result:
@@ -248,6 +250,7 @@ Expected result:
 - Liveness status is `UP`.
 - Readiness status is `UP`.
 - Readiness includes `db` and `storage` components.
+- Info includes the public app metadata.
 
 If readiness is down, inspect the platform logs first. The production guard is
 designed to fail early with clear messages for unsafe configuration.
