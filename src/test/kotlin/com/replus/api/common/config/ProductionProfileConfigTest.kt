@@ -122,6 +122,36 @@ class ProductionProfileConfigTest {
     }
 
     @Test
+    fun `prod profile fails fast when cors allowed origins include localhost`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.web.cors.allowed-origins=https://app.example.test,http://localhost:3000",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Prod profile must not use localhost CORS origins")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when cors allowed origins include non https origin`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.web.cors.allowed-origins=https://app.example.test,http://preview.example.test",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("Prod profile requires HTTPS CORS origins")
+            }
+    }
+
+    @Test
     fun `prod profile fails fast when web base url is blank`() {
         contextRunner
             .withPropertyValues(

@@ -134,6 +134,10 @@ Common first-deploy failures:
 - `Prod profile requires an HTTPS replus.storage.object-storage.public-base-url`:
   replace local or HTTP playback URLs with the HTTPS playback base URL.
 - `replus.web.cors.allowed-origins is required`: set explicit frontend origins.
+- `Prod profile must not use localhost CORS origins`: remove local frontend
+  origins from `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
+- `Prod profile requires HTTPS CORS origins`: replace HTTP frontend origins
+  with HTTPS frontend origins.
 - Readiness is down with a `db` component failure: check database network access
   and credentials.
 - Readiness is up but upload flows fail: switch from local smoke storage to a
@@ -175,6 +179,7 @@ The `prod` profile fails fast when:
 - The H2 console is enabled.
 - CORS origins are blank.
 - CORS origins include a wildcard.
+- CORS origins point to localhost or use HTTP instead of HTTPS.
 
 ## Storage Variables
 
