@@ -42,3 +42,31 @@ jobs:
 
       - name: Build Docker image
         run: docker build --pull --tag repl-us-backend:${{ github.sha }} .
+
+      - name: Smoke Docker image
+        run: |
+          container_name="repl-us-backend-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
+          docker run \
+            --detach \
+            --name "$container_name" \
+            --publish 18080:8080 \
+            --env SPRING_PROFILES_ACTIVE=local \
+            --env PORT=8080 \
+            repl-us-backend:${{ github.sha }}
+
+          cleanup() {
+            docker stop "$container_name" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..30}; do
+            if scripts/smoke-api.sh http://127.0.0.1:18080; then
+              exit 0
+            fi
+            echo "Docker smoke attempt $attempt failed; retrying..."
+            sleep 2
+          done
+
+          echo "Docker smoke did not become ready" >&2
+          docker logs "$container_name" >&2 || true
+          exit 1

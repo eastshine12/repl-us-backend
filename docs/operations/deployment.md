@@ -40,6 +40,9 @@ Build locally:
 docker build -t repl-us-backend:local .
 ```
 
+CI also runs a local-profile smoke test against the built image before the
+Docker image build job can pass.
+
 The production image is expected to fail fast when required production variables
 are missing. For a local container smoke test without real production services,
 override the profile explicitly:
