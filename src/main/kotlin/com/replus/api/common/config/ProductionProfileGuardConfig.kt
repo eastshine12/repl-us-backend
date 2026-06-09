@@ -44,6 +44,25 @@ class ProductionProfileGuardConfig {
             require(corsAllowedOrigins.none { it == "*" || it.contains("*") }) {
                 "Prod profile must not allow wildcard CORS origins"
             }
+            val storageMode = environment.getProperty("replus.storage.mode").orEmpty().trim()
+            if (storageMode.equals("object-storage", ignoreCase = true)) {
+                val publicBaseUrl = environment
+                    .getProperty("replus.storage.object-storage.public-base-url")
+                    .orEmpty()
+                    .trim()
+                require(publicBaseUrl.isNotBlank()) {
+                    "replus.storage.object-storage.public-base-url is required when object storage is enabled in prod"
+                }
+                require(
+                    !publicBaseUrl.contains("localhost", ignoreCase = true) &&
+                        !publicBaseUrl.contains("127.0.0.1"),
+                ) {
+                    "Prod profile must not use localhost as replus.storage.object-storage.public-base-url"
+                }
+                require(publicBaseUrl.startsWith("https://", ignoreCase = true)) {
+                    "Prod profile requires an HTTPS replus.storage.object-storage.public-base-url"
+                }
+            }
         }
 
     private fun Environment.getBooleanProperty(name: String, defaultValue: Boolean): Boolean =
