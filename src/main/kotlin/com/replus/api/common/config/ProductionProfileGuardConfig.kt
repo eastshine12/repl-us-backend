@@ -31,7 +31,7 @@ class ProductionProfileGuardConfig {
             require(webBaseUrl.isNotBlank()) {
                 "replus.web-base-url is required when the prod profile is active"
             }
-            require(!webBaseUrl.contains("localhost", ignoreCase = true) && !webBaseUrl.contains("127.0.0.1")) {
+            require(!webBaseUrl.isLocalhostReference()) {
                 "Prod profile must not use localhost as replus.web-base-url"
             }
             require(webBaseUrl.startsWith("https://", ignoreCase = true)) {
@@ -44,6 +44,12 @@ class ProductionProfileGuardConfig {
             require(corsAllowedOrigins.none { it == "*" || it.contains("*") }) {
                 "Prod profile must not allow wildcard CORS origins"
             }
+            require(corsAllowedOrigins.none { it.isLocalhostReference() }) {
+                "Prod profile must not use localhost CORS origins"
+            }
+            require(corsAllowedOrigins.all { it.startsWith("https://", ignoreCase = true) }) {
+                "Prod profile requires HTTPS CORS origins"
+            }
             val storageMode = environment.getProperty("replus.storage.mode").orEmpty().trim()
             if (storageMode.equals("object-storage", ignoreCase = true)) {
                 val publicBaseUrl = environment
@@ -53,10 +59,7 @@ class ProductionProfileGuardConfig {
                 require(publicBaseUrl.isNotBlank()) {
                     "replus.storage.object-storage.public-base-url is required when object storage is enabled in prod"
                 }
-                require(
-                    !publicBaseUrl.contains("localhost", ignoreCase = true) &&
-                        !publicBaseUrl.contains("127.0.0.1"),
-                ) {
+                require(!publicBaseUrl.isLocalhostReference()) {
                     "Prod profile must not use localhost as replus.storage.object-storage.public-base-url"
                 }
                 require(publicBaseUrl.startsWith("https://", ignoreCase = true)) {
@@ -74,6 +77,9 @@ class ProductionProfileGuardConfig {
             .split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
+
+    private fun String.isLocalhostReference(): Boolean =
+        contains("localhost", ignoreCase = true) || contains("127.0.0.1")
 
     private companion object {
         const val PROD_PROFILE = "prod"
