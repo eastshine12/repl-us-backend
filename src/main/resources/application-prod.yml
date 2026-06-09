@@ -18,3 +18,6 @@ replus:
     lifecycle:
       scheduler:
         enabled: ${REPLUS_MISSION_LIFECYCLE_SCHEDULER_ENABLED:false}
+  storage:
+    object-storage:
+      public-base-url: ${REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL:}

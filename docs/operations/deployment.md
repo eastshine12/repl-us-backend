@@ -128,6 +128,11 @@ Common first-deploy failures:
   frontend origin used for invite links.
 - `Prod profile requires an HTTPS replus.web-base-url`: replace local or HTTP
   frontend URLs with the HTTPS frontend origin.
+- `replus.storage.object-storage.public-base-url is required`: set
+  `REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL`, or temporarily set
+  `REPLUS_STORAGE_MODE=local` for a backend-only smoke deploy.
+- `Prod profile requires an HTTPS replus.storage.object-storage.public-base-url`:
+  replace local or HTTP playback URLs with the HTTPS playback base URL.
 - `replus.web.cors.allowed-origins is required`: set explicit frontend origins.
 - Readiness is down with a `db` component failure: check database network access
   and credentials.
@@ -164,6 +169,8 @@ The `prod` profile fails fast when:
 - `SPRING_DATASOURCE_URL` is blank.
 - The datasource URL points to H2.
 - The web base URL is blank, points to localhost, or is not HTTPS.
+- Object storage mode is enabled while the public playback base URL is blank,
+  points to localhost, or is not HTTPS.
 - Development seed data is enabled.
 - The H2 console is enabled.
 - CORS origins are blank.

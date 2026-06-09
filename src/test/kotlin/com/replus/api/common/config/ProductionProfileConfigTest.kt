@@ -13,12 +13,7 @@ class ProductionProfileConfigTest {
     @Test
     fun `prod profile disables development conveniences by default`() {
         contextRunner
-            .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
-            )
+            .withPropertyValues(*validProdProperties())
             .run { context ->
                 assertThat(context).hasNotFailed()
                 assertThat(context.environment.getProperty("replus.seed-dev-data", Boolean::class.java))
@@ -38,10 +33,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when datasource url is blank`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url= ",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(
+                    "spring.datasource.url= ",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -54,10 +48,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when datasource url points to h2`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:h2:mem:replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(
+                    "spring.datasource.url=jdbc:h2:mem:replus",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -70,11 +63,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when dev seed data is explicitly enabled`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
-                "replus.seed-dev-data=true",
+                *validProdProperties(
+                    "replus.seed-dev-data=true",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -87,11 +78,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when h2 console is explicitly enabled`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
-                "spring.h2.console.enabled=true",
+                *validProdProperties(
+                    "spring.h2.console.enabled=true",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -104,10 +93,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when cors allowed origins are blank`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins= ",
+                *validProdProperties(
+                    "replus.web.cors.allowed-origins= ",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -122,10 +110,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when cors allowed origins include wildcard`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=https://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test,*",
+                *validProdProperties(
+                    "replus.web.cors.allowed-origins=https://app.example.test,*",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -138,10 +125,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when web base url is blank`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url= ",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(
+                    "replus.web-base-url= ",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -154,9 +140,7 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when web base url is not configured`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(without = setOf("replus.web-base-url")),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -169,10 +153,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when web base url points to localhost`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=http://localhost:3000",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(
+                    "replus.web-base-url=http://localhost:3000",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -185,10 +168,9 @@ class ProductionProfileConfigTest {
     fun `prod profile fails fast when web base url is not https`() {
         contextRunner
             .withPropertyValues(
-                "spring.profiles.active=prod",
-                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
-                "replus.web-base-url=http://app.example.test",
-                "replus.web.cors.allowed-origins=https://app.example.test",
+                *validProdProperties(
+                    "replus.web-base-url=http://app.example.test",
+                ),
             )
             .run { context ->
                 assertThat(context).hasFailed()
@@ -196,4 +178,91 @@ class ProductionProfileConfigTest {
                     .hasMessageContaining("Prod profile requires an HTTPS replus.web-base-url")
             }
     }
+
+    @Test
+    fun `prod profile fails fast when object storage public base url is blank`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.storage.object-storage.public-base-url= ",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining(
+                        "replus.storage.object-storage.public-base-url is required when object storage is enabled in prod",
+                    )
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when object storage public base url is not configured`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(without = setOf("replus.storage.object-storage.public-base-url")),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining(
+                        "replus.storage.object-storage.public-base-url is required when object storage is enabled in prod",
+                    )
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when object storage public base url points to localhost`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.storage.object-storage.public-base-url=http://localhost:8080/mock-playback",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining(
+                        "Prod profile must not use localhost as replus.storage.object-storage.public-base-url",
+                    )
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when object storage public base url is not https`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.storage.object-storage.public-base-url=http://cdn.example.test/videos/",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining(
+                        "Prod profile requires an HTTPS replus.storage.object-storage.public-base-url",
+                    )
+            }
+    }
+
+    private fun validProdProperties(
+        vararg overrides: String,
+        without: Set<String> = emptySet(),
+    ): Array<String> {
+        val overriddenNames = overrides.mapTo(mutableSetOf()) { it.propertyName() }
+        return (
+            listOf(
+                "spring.profiles.active=prod",
+                "spring.datasource.url=jdbc:postgresql://db.example.test:5432/replus",
+                "replus.web-base-url=https://app.example.test",
+                "replus.web.cors.allowed-origins=https://app.example.test",
+                "replus.storage.mode=object-storage",
+                "replus.storage.object-storage.public-base-url=https://cdn.example.test/videos/",
+            ).filterNot { it.propertyName() in overriddenNames || it.propertyName() in without } +
+                overrides
+            ).toTypedArray()
+    }
+
+    private fun String.propertyName(): String =
+        substringBefore("=")
 }
