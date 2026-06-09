@@ -218,6 +218,21 @@ Do not use them for a production deployment.
 
 ## Post-Deploy Smoke Checks
 
+The repository includes a smoke script for the first deployed URL:
+
+```bash
+scripts/smoke-api.sh https://<api-host>
+```
+
+To also validate the guest session and `/api/me` flow:
+
+```bash
+scripts/smoke-api.sh --with-guest-auth https://<api-host>
+```
+
+The guest-auth smoke creates a guest user, so reserve it for a smoke
+environment or an explicit production validation window.
+
 After deployment, check:
 
 ```bash
