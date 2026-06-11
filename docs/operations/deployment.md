@@ -258,6 +258,16 @@ To also validate the guest session and `/api/me` flow:
 scripts/smoke-api.sh --with-guest-auth https://<api-host>
 ```
 
+For Render cold starts or immediately after a deploy, allow a longer request
+timeout and a few retries:
+
+```bash
+SMOKE_CURL_TIMEOUT_SECONDS=180 \
+SMOKE_RETRY_ATTEMPTS=6 \
+SMOKE_RETRY_DELAY_SECONDS=10 \
+scripts/smoke-api.sh --with-guest-auth https://<api-host>
+```
+
 The guest-auth smoke creates a guest user, so reserve it for a smoke
 environment or an explicit production validation window.
 

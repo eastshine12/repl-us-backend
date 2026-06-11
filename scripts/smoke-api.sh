@@ -16,11 +16,21 @@ Checks:
 Examples:
   scripts/smoke-api.sh https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
+
+Environment:
+  SMOKE_CONNECT_TIMEOUT_SECONDS  Curl connect timeout. Defaults to 5.
+  SMOKE_CURL_TIMEOUT_SECONDS     Per-request curl timeout. Defaults to 20.
+  SMOKE_RETRY_ATTEMPTS           Attempts per request. Defaults to 1.
+  SMOKE_RETRY_DELAY_SECONDS      Delay between retries. Defaults to 2.
 EOF
 }
 
 with_guest_auth=false
 base_url="${API_BASE_URL:-}"
+smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
+smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-20}"
+smoke_retry_attempts="${SMOKE_RETRY_ATTEMPTS:-1}"
+smoke_retry_delay_seconds="${SMOKE_RETRY_DELAY_SECONDS:-2}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +64,22 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 69
 fi
 
+require_integer_at_least() {
+  local name="$1"
+  local value="$2"
+  local minimum="$3"
+
+  if ! [[ "$value" =~ ^[0-9]+$ ]] || (( value < minimum )); then
+    echo "$name must be an integer greater than or equal to $minimum" >&2
+    exit 64
+  fi
+}
+
+require_integer_at_least "SMOKE_CONNECT_TIMEOUT_SECONDS" "$smoke_connect_timeout_seconds" 1
+require_integer_at_least "SMOKE_CURL_TIMEOUT_SECONDS" "$smoke_curl_timeout_seconds" 1
+require_integer_at_least "SMOKE_RETRY_ATTEMPTS" "$smoke_retry_attempts" 1
+require_integer_at_least "SMOKE_RETRY_DELAY_SECONDS" "$smoke_retry_delay_seconds" 0
+
 base_url="${base_url%/}"
 
 request() {
@@ -61,12 +87,37 @@ request() {
   local path="$2"
   shift 2
 
-  curl -fsS \
-    --connect-timeout 5 \
-    --max-time 20 \
-    -X "$method" \
-    "$@" \
-    "$base_url$path"
+  local attempt=1
+  local output
+  local exit_code
+
+  while true; do
+    if output="$(
+      curl -fsS \
+        --connect-timeout "$smoke_connect_timeout_seconds" \
+        --max-time "$smoke_curl_timeout_seconds" \
+        -X "$method" \
+        "$@" \
+        "$base_url$path" \
+        2>&1
+    )"; then
+      printf '%s' "$output"
+      return 0
+    fi
+
+    exit_code=$?
+    if (( attempt >= smoke_retry_attempts )); then
+      printf '%s\n' "$output" >&2
+      return "$exit_code"
+    fi
+
+    printf 'retrying %s %s after curl failure (%s/%s)\n' \
+      "$method" "$path" "$attempt" "$smoke_retry_attempts" >&2
+    if (( smoke_retry_delay_seconds > 0 )); then
+      sleep "$smoke_retry_delay_seconds"
+    fi
+    attempt=$((attempt + 1))
+  done
 }
 
 assert_status_up() {
