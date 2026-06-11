@@ -26,6 +26,8 @@ class ProductionProfileConfigTest {
                         Boolean::class.java,
                     ),
                 ).isFalse()
+                assertThat(context.environment.getProperty("replus.auth.dev-fixed-tokens-enabled", Boolean::class.java))
+                    .isFalse()
             }
     }
 
@@ -71,6 +73,21 @@ class ProductionProfileConfigTest {
                 assertThat(context).hasFailed()
                 assertThat(context.startupFailure)
                     .hasMessageContaining("replus.seed-dev-data must be false when the prod profile is active")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when fixed dev tokens are explicitly enabled`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.auth.dev-fixed-tokens-enabled=true",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("replus.auth.dev-fixed-tokens-enabled must be false when the prod profile is active")
             }
     }
 

@@ -176,6 +176,7 @@ The `prod` profile fails fast when:
 - Object storage mode is enabled while the public playback base URL is blank,
   points to localhost, or is not HTTPS.
 - Development seed data is enabled.
+- Fixed development bearer tokens are enabled.
 - The H2 console is enabled.
 - CORS origins are blank.
 - CORS origins include a wildcard.
@@ -220,6 +221,7 @@ These defaults are for local development and tests:
 ```text
 H2_CONSOLE_ENABLED=true
 REPLUS_SEED_DEV_DATA=true
+REPLUS_AUTH_DEV_FIXED_TOKENS_ENABLED=true
 SPRING_DATASOURCE_URL=jdbc:h2:mem:...
 REPLUS_STORAGE_MODE=local
 ```
@@ -233,6 +235,7 @@ Do not use them for a production deployment.
 - `SPRING_PROFILES_ACTIVE=prod` is set.
 - `DATABASE_URL` is populated from the Render PostgreSQL database, or explicit
   Spring datasource credentials are configured in the secret manager.
+- Fixed development bearer tokens are disabled.
 - CORS origins contain only explicit HTTPS frontend origins.
 - `REPLUS_STORAGE_MODE` is set explicitly in the hosting dashboard.
 - Object storage bucket, region, endpoint, and playback base URL are configured

@@ -24,6 +24,9 @@ class ProductionProfileGuardConfig {
             require(!environment.getBooleanProperty("replus.seed-dev-data", defaultValue = false)) {
                 "replus.seed-dev-data must be false when the prod profile is active"
             }
+            require(!environment.getBooleanProperty("replus.auth.dev-fixed-tokens-enabled", defaultValue = false)) {
+                "replus.auth.dev-fixed-tokens-enabled must be false when the prod profile is active"
+            }
             require(!environment.getBooleanProperty("spring.h2.console.enabled", defaultValue = false)) {
                 "spring.h2.console.enabled must be false when the prod profile is active"
             }
