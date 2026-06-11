@@ -1,5 +1,7 @@
 import java.time.Instant
 import java.util.Properties
+import kotlin.io.path.readLines
+import kotlin.io.path.readText
 
 plugins {
     kotlin("jvm") version "2.2.21"
@@ -87,13 +89,53 @@ val generateGitProperties by tasks.registering {
                 null
             }
 
+        fun gitReference(name: String): String? {
+            val referenceFile = layout.projectDirectory.file(".git/$name").asFile
+            if (referenceFile.isFile) {
+                return referenceFile.readText().trim().takeIf { it.isNotBlank() }
+            }
+
+            val packedRefsFile = layout.projectDirectory.file(".git/packed-refs").asFile
+            if (!packedRefsFile.isFile) {
+                return null
+            }
+
+            return packedRefsFile.toPath().readLines()
+                .asSequence()
+                .filterNot { it.startsWith("#") || it.startsWith("^") }
+                .mapNotNull { line ->
+                    val parts = line.split(" ", limit = 2)
+                    if (parts.size == 2 && parts[1] == name) parts[0] else null
+                }
+                .firstOrNull()
+        }
+
+        fun gitHead(): Pair<String?, String?> {
+            val headFile = layout.projectDirectory.file(".git/HEAD").asFile
+            if (!headFile.isFile) {
+                return null to null
+            }
+
+            val head = headFile.readText().trim()
+            if (!head.startsWith("ref: ")) {
+                return null to head.takeIf { it.isNotBlank() }
+            }
+
+            val reference = head.removePrefix("ref: ").trim()
+            val branchName = reference.removePrefix("refs/heads/").takeIf { it != reference }
+            return branchName to gitReference(reference)
+        }
+
+        val (fileBranch, fileCommitId) = gitHead()
         val commitId = environment("REPLUS_BUILD_GIT_COMMIT")
             ?: environment("GITHUB_SHA")
             ?: git("rev-parse", "HEAD")
+            ?: fileCommitId
             ?: "unknown"
         val branch = environment("REPLUS_BUILD_GIT_BRANCH")
             ?: environment("GITHUB_REF_NAME")
             ?: git("rev-parse", "--abbrev-ref", "HEAD")
+            ?: fileBranch
             ?: "unknown"
         val commitTime = environment("REPLUS_BUILD_GIT_COMMIT_TIME")
             ?: git("show", "-s", "--format=%cI", "HEAD")
