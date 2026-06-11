@@ -41,7 +41,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Build Docker image
-        run: docker build --pull --tag repl-us-backend:${{ github.sha }} .
+        run: |
+          docker build \
+            --pull \
+            --build-arg REPLUS_BUILD_GIT_COMMIT=${{ github.sha }} \
+            --build-arg REPLUS_BUILD_GIT_BRANCH=${{ github.ref_name }} \
+            --build-arg REPLUS_BUILD_GIT_COMMIT_TIME=${{ github.event.head_commit.timestamp }} \
+            --tag repl-us-backend:${{ github.sha }} \
+            .
 
       - name: Smoke Docker image
         run: |
