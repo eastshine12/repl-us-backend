@@ -25,7 +25,7 @@ services:
       - key: REPLUS_WEB_BASE_URL
         sync: false
       - key: REPLUS_STORAGE_MODE
-        value: object-storage
+        sync: false
       - key: REPLUS_STORAGE_OBJECT_BUCKET
         sync: false
       - key: REPLUS_STORAGE_OBJECT_PUBLIC_BASE_URL
