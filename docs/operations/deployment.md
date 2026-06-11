@@ -63,6 +63,10 @@ health check at `/actuator/health/readiness`, and keeps secrets out of git with
 surprise spend during the first smoke deployment. Review the plans before
 serving real users.
 
+The web service is configured to auto-deploy only after the linked GitHub
+checks pass. This keeps a failing build or Docker smoke regression from
+reaching the Render environment just because it was merged to `main`.
+
 Before applying the blueprint, prepare:
 
 - Explicit HTTPS frontend origins for `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
@@ -229,6 +233,7 @@ Do not use them for a production deployment.
 ## Pre-Deploy Checklist
 
 - CI is passing on the commit being deployed.
+- Render auto-deploy is set to wait for GitHub checks to pass.
 - `SPRING_PROFILES_ACTIVE=prod` is set.
 - `DATABASE_URL` is populated from the Render PostgreSQL database, or explicit
   Spring datasource credentials are configured in the secret manager.

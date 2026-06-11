@@ -12,6 +12,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health/readiness
+    autoDeployTrigger: checksPass
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod

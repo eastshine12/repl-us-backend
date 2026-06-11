@@ -34,6 +34,7 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].type"]).isEqualTo("web")
         assertThat(properties["services[0].runtime"]).isEqualTo("docker")
         assertThat(properties["services[0].healthCheckPath"]).isEqualTo("/actuator/health/readiness")
+        assertThat(properties["services[0].autoDeployTrigger"]).isEqualTo("checksPass")
 
         val prodProfileIndex = envVarIndexFor("SPRING_PROFILES_ACTIVE")
         assertThat(properties["services[0].envVars[$prodProfileIndex].value"]).isEqualTo("prod")
