@@ -30,6 +30,17 @@ class BackendCiWorkflowContractTest {
             .contains("docker build")
     }
 
+    @Test
+    fun `docker build job passes git metadata build arguments`() {
+        val buildStepIndex = stepIndexFor("Build Docker image")
+        val buildStepRun = workflow["jobs.docker-build.steps[$buildStepIndex].run"].toString()
+
+        assertThat(buildStepRun)
+            .contains("--build-arg REPLUS_BUILD_GIT_COMMIT=${'$'}{{ github.sha }}")
+            .contains("--build-arg REPLUS_BUILD_GIT_BRANCH=${'$'}{{ github.ref_name }}")
+            .contains("--build-arg REPLUS_BUILD_GIT_COMMIT_TIME=${'$'}{{ github.event.head_commit.timestamp }}")
+    }
+
     private fun stepIndexFor(name: String): Int {
         for (index in 0..20) {
             if (workflow["jobs.docker-build.steps[$index].name"] == name) {

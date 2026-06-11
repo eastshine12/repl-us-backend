@@ -284,7 +284,7 @@ Expected result:
 - Liveness status is `UP`.
 - Readiness status is `UP`.
 - Readiness includes `db` and `storage` components.
-- Info includes the public app metadata.
+- Info includes the public app metadata, build version, and git commit id.
 
 If readiness is down, inspect the platform logs first. The production guard is
 designed to fail early with clear messages for unsafe configuration.

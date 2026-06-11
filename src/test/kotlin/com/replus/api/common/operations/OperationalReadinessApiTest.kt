@@ -52,5 +52,9 @@ class OperationalReadinessApiTest {
             .andExpect(jsonPath("$.app.name").value("repl.us backend"))
             .andExpect(jsonPath("$.app.description").value("Private daily 3-second video room API"))
             .andExpect(jsonPath("$.app.version").value("0.1.0-SNAPSHOT"))
+            .andExpect(jsonPath("$.build.name").value("repl-us-backend"))
+            .andExpect(jsonPath("$.build.version").value("0.1.0-SNAPSHOT"))
+            .andExpect(jsonPath("$.git.branch").exists())
+            .andExpect(jsonPath("$.git.commit.id").exists())
     }
 }

@@ -55,6 +55,11 @@ management:
   info:
     env:
       enabled: true
+    build:
+      enabled: true
+    git:
+      enabled: true
+      mode: simple
   endpoint:
     health:
       probes:
