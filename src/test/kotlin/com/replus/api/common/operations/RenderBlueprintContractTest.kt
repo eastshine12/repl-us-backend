@@ -40,6 +40,14 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].envVars[$prodProfileIndex].value"]).isEqualTo("prod")
     }
 
+    @Test
+    fun `api service keeps smoke storage mode managed in the render dashboard`() {
+        val storageModeIndex = envVarIndexFor("REPLUS_STORAGE_MODE")
+
+        assertThat(properties["services[0].envVars[$storageModeIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$storageModeIndex].value"]).isNull()
+    }
+
     private fun envVarIndexFor(key: String): Int {
         for (index in 0..50) {
             if (properties["services[0].envVars[$index].key"] == key) {

@@ -70,7 +70,9 @@ reaching the Render environment just because it was merged to `main`.
 Before applying the blueprint, prepare:
 
 - Explicit HTTPS frontend origins for `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
-- Object storage values for response-video uploads.
+- A storage mode for the target environment. Use local storage only for the
+  first backend smoke deploy; use object storage for upload-flow validation.
+- Object storage values for response-video uploads when object storage is used.
 
 The blueprint injects the Render PostgreSQL connection string as `DATABASE_URL`.
 The application converts Render's `postgresql://...` value into Spring
@@ -101,12 +103,6 @@ Minimum values for a backend-only smoke deploy:
 ```text
 REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 REPLUS_WEB_BASE_URL=<https-frontend-origin>
-```
-
-For the very first backend-only deploy, object storage can be deferred by
-temporarily overriding the blueprint value:
-
-```text
 REPLUS_STORAGE_MODE=local
 ```
 
@@ -238,7 +234,9 @@ Do not use them for a production deployment.
 - `DATABASE_URL` is populated from the Render PostgreSQL database, or explicit
   Spring datasource credentials are configured in the secret manager.
 - CORS origins contain only explicit HTTPS frontend origins.
-- Object storage bucket, region, endpoint, and playback base URL are configured.
+- `REPLUS_STORAGE_MODE` is set explicitly in the hosting dashboard.
+- Object storage bucket, region, endpoint, and playback base URL are configured
+  before validating upload flows.
 - No `.env` file, private key, token, or real endpoint has been committed.
 - Database migrations have been reviewed for backward compatibility.
 - The release worker remains disabled unless it is intentionally being operated.
