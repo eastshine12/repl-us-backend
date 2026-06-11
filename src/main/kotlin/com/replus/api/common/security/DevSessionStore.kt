@@ -1,5 +1,6 @@
 package com.replus.api.common.security
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.security.SecureRandom
 import java.util.Base64
@@ -7,7 +8,10 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class DevSessionStore {
+class DevSessionStore(
+    @Value("\${replus.auth.dev-fixed-tokens-enabled:true}")
+    private val fixedDevTokensEnabled: Boolean,
+) {
     private val random = SecureRandom()
     private val sessions = ConcurrentHashMap<String, UUID>()
 
@@ -18,7 +22,7 @@ class DevSessionStore {
     }
 
     fun resolve(token: String): UUID? =
-        fixedDevTokens[token] ?: sessions[token]
+        sessions[token] ?: fixedDevTokens.takeIf { fixedDevTokensEnabled }?.get(token)
 
     private fun randomToken(): String {
         val bytes = ByteArray(24)

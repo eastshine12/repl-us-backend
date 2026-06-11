@@ -59,7 +59,8 @@ Domain models and policies stay framework-free. Application facades own transact
 ./gradlew bootRun
 ```
 
-The app starts on `http://localhost:8080` by default. Local seed data is enabled for development:
+The app starts on `http://localhost:8080` by default. Local seed data and fixed
+development bearer tokens are enabled for local development only:
 
 ```text
 Authorization: Bearer dev-token-mina

@@ -9,6 +9,8 @@ spring:
       enabled: false
 
 replus:
+  auth:
+    dev-fixed-tokens-enabled: false
   web-base-url: ${REPLUS_WEB_BASE_URL:}
   web:
     cors:
