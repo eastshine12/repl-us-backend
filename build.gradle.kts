@@ -76,7 +76,10 @@ val generateGitProperties by tasks.registering {
 
     doLast {
         fun environment(name: String): String? =
-            providers.environmentVariable(name).orNull?.trim()?.takeIf { it.isNotBlank() }
+            providers.environmentVariable(name).orNull
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.takeUnless { it == "unknown" }
 
         fun git(vararg arguments: String): String? =
             try {
@@ -128,11 +131,13 @@ val generateGitProperties by tasks.registering {
 
         val (fileBranch, fileCommitId) = gitHead()
         val commitId = environment("REPLUS_BUILD_GIT_COMMIT")
+            ?: environment("RENDER_GIT_COMMIT")
             ?: environment("GITHUB_SHA")
             ?: git("rev-parse", "HEAD")
             ?: fileCommitId
             ?: "unknown"
         val branch = environment("REPLUS_BUILD_GIT_BRANCH")
+            ?: environment("RENDER_GIT_BRANCH")
             ?: environment("GITHUB_REF_NAME")
             ?: git("rev-parse", "--abbrev-ref", "HEAD")
             ?: fileBranch
