@@ -28,7 +28,9 @@ class SmokeApiScriptTest {
 
         val result = runSmokeScript("--with-guest-auth", fakeApi)
 
-        assertThat(result.exitCode).isEqualTo(0)
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
         assertThat(result.output).contains(
             "liveness: ok",
             "readiness: ok",
@@ -37,6 +39,40 @@ class SmokeApiScriptTest {
             "current user: ok",
         )
         assertThat(receivedAuthorizationHeaders).containsExactly("Bearer smoke-token")
+    }
+
+    @Test
+    fun `smoke script checks room invite and today mission flow when requested`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val receivedDisplayNames = mutableListOf<String>()
+        val fakeApi = startFakeApi(receivedAuthorizationHeaders, receivedDisplayNames)
+
+        val result = runSmokeScript("--with-room-flow", fakeApi)
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains(
+            "liveness: ok",
+            "readiness: ok",
+            "info: ok",
+            "guest auth: ok",
+            "current user: ok",
+            "room create: ok",
+            "room detail: ok",
+            "invite link: ok",
+            "invite join: ok",
+            "today mission: ok",
+            "mission update: ok",
+            "member cleanup: ok",
+        )
+        assertThat(receivedAuthorizationHeaders).contains(
+            "Bearer smoke-token",
+            "Bearer smoke-member-token",
+        )
+        assertThat(receivedDisplayNames).allSatisfy { displayName ->
+            assertThat(displayName).hasSizeLessThanOrEqualTo(24)
+        }
     }
 
     @Test
@@ -54,7 +90,9 @@ class SmokeApiScriptTest {
         assertThat(result.exitCode).isEqualTo(0)
         assertThat(result.output).contains(
             "--with-guest-auth",
+            "--with-room-flow",
             "/actuator/health/readiness",
+            "/api/rooms/{roomId}/today",
             "SMOKE_CURL_TIMEOUT_SECONDS",
             "SMOKE_RETRY_ATTEMPTS",
         )
@@ -95,9 +133,17 @@ class SmokeApiScriptTest {
         assertThat(fakeCurl.readinessCount.readText().trim()).isEqualTo("2")
     }
 
-    private fun startFakeApi(receivedAuthorizationHeaders: MutableList<String?>): String {
+    private fun startFakeApi(
+        receivedAuthorizationHeaders: MutableList<String?>,
+        receivedDisplayNames: MutableList<String> = mutableListOf(),
+    ): String {
         val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server = httpServer
+        var guestSessionCount = 0
+        val roomId = "11111111-1111-4111-8111-111111111111"
+        val memberId = "22222222-2222-4222-8222-222222222222"
+        val missionId = "33333333-3333-4333-8333-333333333333"
+        val inviteCode = "SMOKE2026"
 
         httpServer.createContext("/actuator/health/liveness") { exchange ->
             exchange.respond("""{"status":"UP"}""")
@@ -110,11 +156,118 @@ class SmokeApiScriptTest {
         }
         httpServer.createContext("/api/auth/guest") { exchange ->
             assertThat(exchange.requestMethod).isEqualTo("POST")
-            exchange.respond("""{"accessToken":"smoke-token","tokenType":"Bearer","user":{"id":"smoke-user"}}""")
+            val requestBody = exchange.requestBody.readAllBytes().toString(StandardCharsets.UTF_8)
+            Regex(""""displayName"\s*:\s*"([^"]+)"""")
+                .find(requestBody)
+                ?.groupValues
+                ?.get(1)
+                ?.let { receivedDisplayNames += it }
+            guestSessionCount += 1
+            val token = if (guestSessionCount == 1) "smoke-token" else "smoke-member-token"
+            exchange.respond("""{"accessToken":"$token","tokenType":"Bearer","user":{"id":"smoke-user-$guestSessionCount"}}""")
         }
         httpServer.createContext("/api/me") { exchange ->
             receivedAuthorizationHeaders += exchange.requestHeaders.getFirst("Authorization")
             exchange.respond("""{"user":{"id":"smoke-user"},"rooms":[]}""")
+        }
+        httpServer.createContext("/api/rooms") { exchange ->
+            val path = exchange.requestURI.path
+            receivedAuthorizationHeaders += exchange.requestHeaders.getFirst("Authorization")
+            when {
+                exchange.requestMethod == "POST" && path == "/api/rooms" -> exchange.respond(
+                    """
+                    {
+                      "id":"$roomId",
+                      "name":"Smoke Room",
+                      "memberCount":1,
+                      "maxMembers":6,
+                      "ownerMemberId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                      "currentUserMemberId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                      "currentUserRole":"OWNER",
+                      "members":[],
+                      "createdAt":"2026-06-12T17:00:00Z",
+                      "today":null
+                    }
+                    """.trimIndent(),
+                )
+                exchange.requestMethod == "GET" && path == "/api/rooms/$roomId" -> exchange.respond(
+                    """
+                    {
+                      "id":"$roomId",
+                      "name":"Smoke Room",
+                      "memberCount":1,
+                      "maxMembers":6,
+                      "currentUserRole":"OWNER",
+                      "members":[],
+                      "createdAt":"2026-06-12T17:00:00Z",
+                      "today":null
+                    }
+                    """.trimIndent(),
+                )
+                exchange.requestMethod == "POST" && path == "/api/rooms/$roomId/invite-links" -> exchange.respond(
+                    """
+                    {
+                      "code":"$inviteCode",
+                      "roomId":"$roomId",
+                      "url":"https://example.test/invite/$inviteCode",
+                      "expiresAt":"2026-06-12T18:00:00Z",
+                      "maxUses":1,
+                      "uses":0
+                    }
+                    """.trimIndent(),
+                )
+                exchange.requestMethod == "GET" && path == "/api/rooms/$roomId/today" -> exchange.respond(
+                    """
+                    {
+                      "serverDate":"2026-06-12",
+                      "room":{"id":"$roomId","name":"Smoke Room","memberCount":2,"maxMembers":6,"currentUserRole":"OWNER"},
+                      "mission":{"id":"$missionId","roomId":"$roomId","missionDate":"2026-06-12","prompt":"Look around","category":"OBSERVATION","editCount":0,"canEdit":true,"createdAt":"2026-06-12T17:00:00Z"},
+                      "viewer":{"memberId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"OWNER","hasSubmittedToday":false},
+                      "participation":{"totalActiveMembers":2,"submittedCount":0,"viewerHasSubmitted":false,"canViewFriendResponses":false,"allSubmitted":false},
+                      "responses":[],
+                      "todayFrames":[],
+                      "growthPreview":[]
+                    }
+                    """.trimIndent(),
+                )
+                exchange.requestMethod == "PATCH" && path == "/api/rooms/$roomId/missions/$missionId" -> exchange.respond(
+                    """
+                    {
+                      "id":"$missionId",
+                      "roomId":"$roomId",
+                      "missionDate":"2026-06-12",
+                      "prompt":"Smoke prompt",
+                      "category":"OBSERVATION",
+                      "editCount":1,
+                      "canEdit":false,
+                      "createdAt":"2026-06-12T17:00:00Z"
+                    }
+                    """.trimIndent(),
+                )
+                exchange.requestMethod == "DELETE" && path == "/api/rooms/$roomId/members/$memberId" -> exchange.respond(
+                    """{"memberId":"$memberId","status":"REMOVED","removedAt":"2026-06-12T17:05:00Z"}""",
+                )
+                else -> exchange.respond("unexpected room request: ${exchange.requestMethod} $path", status = 404)
+            }
+        }
+        httpServer.createContext("/api/invite-links/$inviteCode/join") { exchange ->
+            receivedAuthorizationHeaders += exchange.requestHeaders.getFirst("Authorization")
+            exchange.respond(
+                """
+                {
+                  "id":"$roomId",
+                  "name":"Smoke Room",
+                  "memberCount":2,
+                  "maxMembers":6,
+                  "ownerMemberId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  "currentUserMemberId":"$memberId",
+                  "currentUserRole":"MEMBER",
+                  "members":[],
+                  "createdAt":"2026-06-12T17:00:00Z",
+                  "today":null
+                }
+                """.trimIndent(),
+            )
         }
         httpServer.start()
 
@@ -191,10 +344,10 @@ class SmokeApiScriptTest {
         return ScriptResult(exitCode, output)
     }
 
-    private fun HttpExchange.respond(body: String) {
+    private fun HttpExchange.respond(body: String, status: Int = 200) {
         responseHeaders.add("Content-Type", "application/json")
         val bytes = body.toByteArray(StandardCharsets.UTF_8)
-        sendResponseHeaders(200, bytes.size.toLong())
+        sendResponseHeaders(status, bytes.size.toLong())
         responseBody.use { it.write(bytes) }
     }
 
