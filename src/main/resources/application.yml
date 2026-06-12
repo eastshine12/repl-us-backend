@@ -58,7 +58,7 @@ management:
     build:
       enabled: true
     git:
-      enabled: true
+      enabled: false
       mode: simple
   endpoint:
     health:
