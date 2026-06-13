@@ -28,6 +28,8 @@ class ProductionProfileConfigTest {
                 ).isFalse()
                 assertThat(context.environment.getProperty("replus.auth.dev-fixed-tokens-enabled", Boolean::class.java))
                     .isFalse()
+                assertThat(context.environment.getProperty("replus.auth.guest-session-enabled", Boolean::class.java))
+                    .isFalse()
             }
     }
 

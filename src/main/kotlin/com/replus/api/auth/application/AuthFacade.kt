@@ -2,11 +2,14 @@ package com.replus.api.auth.application
 
 import com.replus.api.auth.domain.model.User
 import com.replus.api.auth.domain.repository.UserRepository
+import com.replus.api.common.error.CoreException
+import com.replus.api.common.error.ErrorType
 import com.replus.api.common.security.DevSessionStore
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
 import com.replus.api.room.domain.repository.RoomMemberRepository
 import com.replus.api.room.domain.repository.RoomRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -24,9 +27,15 @@ class AuthFacade(
     private val missionResponseRepository: MissionResponseRepository,
     private val devSessionStore: DevSessionStore,
     private val clock: Clock,
+    @Value("\${replus.auth.guest-session-enabled:true}")
+    private val guestSessionEnabled: Boolean,
 ) {
     @Transactional
     fun createGuestSession(displayName: String?): AuthSessionResult {
+        if (!guestSessionEnabled) {
+            throw CoreException(ErrorType.UNAUTHENTICATED)
+        }
+
         val now = clock.instant()
         val user = userRepository.save(
             User(

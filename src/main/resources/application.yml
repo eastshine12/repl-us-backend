@@ -22,6 +22,7 @@ spring:
 replus:
   auth:
     dev-fixed-tokens-enabled: ${REPLUS_AUTH_DEV_FIXED_TOKENS_ENABLED:true}
+    guest-session-enabled: ${REPLUS_AUTH_GUEST_SESSION_ENABLED:true}
   web-base-url: ${REPLUS_WEB_BASE_URL:http://localhost:3000}
   web:
     cors:
