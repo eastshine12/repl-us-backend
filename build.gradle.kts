@@ -34,6 +34,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("com.nimbusds:nimbus-jose-jwt:10.3")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation(platform("software.amazon.awssdk:bom:2.45.1"))
     implementation("software.amazon.awssdk:s3")
