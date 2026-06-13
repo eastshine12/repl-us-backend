@@ -40,16 +40,16 @@ class SocialLoginFoundationTest {
     fun `verified social identity creates a non guest user with a provider account and bearer session`() {
         val session = authFacade.loginWithSocialProvider(
             SocialLoginCommand(
-                provider = AuthProvider.KAKAO,
-                providerToken = "kakao-new-token",
+                provider = AuthProvider.GOOGLE,
+                providerToken = "google-new-token",
             ),
         )
 
         assertThat(session.user.isGuest).isFalse()
-        assertThat(session.user.displayName).isEqualTo("Kakao Friend")
-        assertThat(session.user.avatarUrl).isEqualTo("https://cdn.example.test/kakao-friend.png")
+        assertThat(session.user.displayName).isEqualTo("Google Friend")
+        assertThat(session.user.avatarUrl).isEqualTo("https://cdn.example.test/google-friend.png")
         entityManager.flush()
-        assertThat(providerAccountCount(AuthProvider.KAKAO, "kakao-123")).isEqualTo(1)
+        assertThat(providerAccountCount(AuthProvider.GOOGLE, "google-123")).isEqualTo(1)
 
         mockMvc.perform(
             get("/api/me")
@@ -102,12 +102,12 @@ class SocialLoginFoundationTest {
         @Primary
         fun socialIdentityVerifier(): SocialIdentityVerifier = object : SocialIdentityVerifier {
             override fun verify(command: SocialLoginCommand): VerifiedSocialIdentity = when (command.providerToken) {
-                "kakao-new-token" -> VerifiedSocialIdentity(
-                    provider = AuthProvider.KAKAO,
-                    providerSubject = "kakao-123",
-                    email = "kakao.friend@example.test",
-                    displayName = "Kakao Friend",
-                    avatarUrl = "https://cdn.example.test/kakao-friend.png",
+                "google-new-token" -> VerifiedSocialIdentity(
+                    provider = AuthProvider.GOOGLE,
+                    providerSubject = "google-123",
+                    email = "google.friend@example.test",
+                    displayName = "Google Friend",
+                    avatarUrl = "https://cdn.example.test/google-friend.png",
                 )
 
                 "apple-returning-token" -> VerifiedSocialIdentity(
