@@ -103,6 +103,7 @@ Minimum values for a backend-only smoke deploy:
 ```text
 REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 REPLUS_WEB_BASE_URL=<https-frontend-origin>
+REPLUS_AUTH_SESSION_STORE=database
 REPLUS_STORAGE_MODE=local
 ```
 
@@ -167,6 +168,14 @@ place:
 REPLUS_AUTH_GUEST_SESSION_ENABLED=true
 ```
 
+Production sessions are database-backed by default. Keep the explicit value in
+the hosting dashboard so a deployment cannot accidentally fall back to in-memory
+sessions:
+
+```text
+REPLUS_AUTH_SESSION_STORE=database
+```
+
 `DATABASE_URL` is the preferred Render path. Non-Render deployments can set the
 Spring datasource values directly instead:
 
@@ -180,6 +189,7 @@ The `prod` profile fails fast when:
 
 - `SPRING_DATASOURCE_URL` is blank.
 - The datasource URL points to H2.
+- The auth session store is not `database`.
 - The web base URL is blank, points to localhost, or is not HTTPS.
 - Object storage mode is enabled while the public playback base URL is blank,
   points to localhost, or is not HTTPS.
@@ -230,6 +240,7 @@ These defaults are for local development and tests:
 H2_CONSOLE_ENABLED=true
 REPLUS_SEED_DEV_DATA=true
 REPLUS_AUTH_DEV_FIXED_TOKENS_ENABLED=true
+REPLUS_AUTH_SESSION_STORE=database
 SPRING_DATASOURCE_URL=jdbc:h2:mem:...
 REPLUS_STORAGE_MODE=local
 ```

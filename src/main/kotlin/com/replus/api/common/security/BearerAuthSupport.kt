@@ -5,11 +5,13 @@ import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
+import java.time.Clock
 
 @Component
 class BearerAuthSupport(
-    private val devSessionStore: DevSessionStore,
+    private val sessionStore: SessionStore,
     private val userRepository: UserRepository,
+    private val clock: Clock,
 ) {
     fun requireUser(authorizationHeader: String?): AuthenticatedUser {
         val token = authorizationHeader
@@ -19,7 +21,7 @@ class BearerAuthSupport(
             ?.takeIf { it.isNotBlank() }
             ?: throw CoreException(ErrorType.UNAUTHENTICATED)
 
-        val userId = devSessionStore.resolve(token)
+        val userId = sessionStore.resolve(token, clock.instant())
             ?: throw CoreException(ErrorType.UNAUTHENTICATED)
 
         if (!userRepository.existsById(userId)) {

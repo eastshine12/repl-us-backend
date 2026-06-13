@@ -10,6 +10,7 @@ spring:
 
 replus:
   auth:
+    session-store: ${REPLUS_AUTH_SESSION_STORE:database}
     dev-fixed-tokens-enabled: false
     guest-session-enabled: ${REPLUS_AUTH_GUEST_SESSION_ENABLED:false}
   web-base-url: ${REPLUS_WEB_BASE_URL:}

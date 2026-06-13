@@ -30,6 +30,23 @@ class ProductionProfileConfigTest {
                     .isFalse()
                 assertThat(context.environment.getProperty("replus.auth.guest-session-enabled", Boolean::class.java))
                     .isFalse()
+                assertThat(context.environment.getProperty("replus.auth.session-store"))
+                    .isEqualTo("database")
+            }
+    }
+
+    @Test
+    fun `prod profile fails fast when session store is not database backed`() {
+        contextRunner
+            .withPropertyValues(
+                *validProdProperties(
+                    "replus.auth.session-store=memory",
+                ),
+            )
+            .run { context ->
+                assertThat(context).hasFailed()
+                assertThat(context.startupFailure)
+                    .hasMessageContaining("replus.auth.session-store must be database when the prod profile is active")
             }
     }
 

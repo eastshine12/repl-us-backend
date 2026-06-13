@@ -4,7 +4,7 @@ import com.replus.api.auth.domain.model.User
 import com.replus.api.auth.domain.repository.UserRepository
 import com.replus.api.common.error.CoreException
 import com.replus.api.common.error.ErrorType
-import com.replus.api.common.security.DevSessionStore
+import com.replus.api.common.security.SessionStore
 import com.replus.api.mission.domain.repository.MissionRepository
 import com.replus.api.mission.domain.repository.MissionResponseRepository
 import com.replus.api.room.domain.repository.RoomMemberRepository
@@ -25,7 +25,7 @@ class AuthFacade(
     private val roomMemberRepository: RoomMemberRepository,
     private val missionRepository: MissionRepository,
     private val missionResponseRepository: MissionResponseRepository,
-    private val devSessionStore: DevSessionStore,
+    private val sessionStore: SessionStore,
     private val clock: Clock,
     @Value("\${replus.auth.guest-session-enabled:true}")
     private val guestSessionEnabled: Boolean,
@@ -46,9 +46,10 @@ class AuthFacade(
                 createdAt = now,
             ),
         )
+        val expiresAt = now.plus(Duration.ofDays(30))
         return AuthSessionResult(
-            accessToken = devSessionStore.register(user.id),
-            expiresAt = now.plus(Duration.ofDays(30)),
+            accessToken = sessionStore.register(user.id, expiresAt),
+            expiresAt = expiresAt,
             user = user,
         )
     }

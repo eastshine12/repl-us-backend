@@ -15,7 +15,7 @@ The product is designed around intimacy rather than broadcast. Rooms are small, 
 - Direct response-video upload flow with object-key reservation and object-storage verification.
 - Operational health and readiness probes for deployment environments.
 - Foundation storage model for users, rooms, members, invites, missions, responses, video assets, and mission release state.
-- Development bearer-session flow for local testing before social login integration.
+- Bearer-session foundation with hashed token persistence before social login integration.
 - Production guest sessions are disabled by default and can be opened only for explicit validation windows.
 
 This backend is being built in small production slices: room access, invites, daily mission policy, response upload confirmation, and social interactions are added incrementally while release workers, push notifications, and native-app integration remain separate steps.
