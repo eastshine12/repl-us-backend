@@ -35,6 +35,11 @@ replus:
         fail-incomplete-cron: ${REPLUS_MISSION_LIFECYCLE_FAIL_INCOMPLETE_CRON:0 5 0 * * *}
         release-due-fixed-delay: ${REPLUS_MISSION_LIFECYCLE_RELEASE_DUE_FIXED_DELAY:30000}
         release-due-initial-delay: ${REPLUS_MISSION_LIFECYCLE_RELEASE_DUE_INITIAL_DELAY:30000}
+  operations:
+    smoke-cleanup:
+      enabled: ${REPLUS_OPERATIONS_SMOKE_CLEANUP_ENABLED:false}
+      token: ${REPLUS_OPERATIONS_SMOKE_CLEANUP_TOKEN:}
+      room-name-prefix: ${REPLUS_OPERATIONS_SMOKE_CLEANUP_ROOM_NAME_PREFIX:Smoke Room }
   storage:
     mode: ${REPLUS_STORAGE_MODE:local}
     local:

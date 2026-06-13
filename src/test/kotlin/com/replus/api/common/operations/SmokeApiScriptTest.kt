@@ -76,6 +76,30 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script cleans up smoke room when cleanup token is configured`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val receivedDisplayNames = mutableListOf<String>()
+        val receivedOperationsTokens = mutableListOf<String?>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            receivedDisplayNames = receivedDisplayNames,
+            receivedOperationsTokens = receivedOperationsTokens,
+        )
+
+        val result = runSmokeScript(
+            "--with-room-flow",
+            fakeApi,
+            environment = mapOf("SMOKE_CLEANUP_TOKEN" to "cleanup-secret"),
+        )
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains("room cleanup: ok")
+        assertThat(receivedOperationsTokens).containsExactly("cleanup-secret")
+    }
+
+    @Test
     fun `smoke script prints usage when base url is missing`() {
         val result = runSmokeScript()
 
@@ -93,6 +117,7 @@ class SmokeApiScriptTest {
             "--with-room-flow",
             "/actuator/health/readiness",
             "/api/rooms/{roomId}/today",
+            "SMOKE_CLEANUP_TOKEN",
             "SMOKE_CURL_TIMEOUT_SECONDS",
             "SMOKE_RETRY_ATTEMPTS",
         )
@@ -136,6 +161,7 @@ class SmokeApiScriptTest {
     private fun startFakeApi(
         receivedAuthorizationHeaders: MutableList<String?>,
         receivedDisplayNames: MutableList<String> = mutableListOf(),
+        receivedOperationsTokens: MutableList<String?> = mutableListOf(),
     ): String {
         val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server = httpServer
@@ -268,6 +294,10 @@ class SmokeApiScriptTest {
                 }
                 """.trimIndent(),
             )
+        }
+        httpServer.createContext("/internal/operations/smoke-rooms/$roomId") { exchange ->
+            receivedOperationsTokens += exchange.requestHeaders.getFirst("X-Replus-Operations-Token")
+            exchange.respond("""{"roomId":"$roomId","deleted":true}""")
         }
         httpServer.start()
 
