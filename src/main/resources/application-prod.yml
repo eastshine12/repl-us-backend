@@ -11,6 +11,7 @@ spring:
 replus:
   auth:
     dev-fixed-tokens-enabled: false
+    guest-session-enabled: ${REPLUS_AUTH_GUEST_SESSION_ENABLED:false}
   web-base-url: ${REPLUS_WEB_BASE_URL:}
   web:
     cors:

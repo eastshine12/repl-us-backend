@@ -59,6 +59,14 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].envVars[$tokenIndex].value"]).isNull()
     }
 
+    @Test
+    fun `api service keeps guest sessions managed in the render dashboard`() {
+        val guestSessionIndex = envVarIndexFor("REPLUS_AUTH_GUEST_SESSION_ENABLED")
+
+        assertThat(properties["services[0].envVars[$guestSessionIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$guestSessionIndex].value"]).isNull()
+    }
+
     private fun envVarIndexFor(key: String): Int {
         for (index in 0..50) {
             if (properties["services[0].envVars[$index].key"] == key) {

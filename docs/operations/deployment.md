@@ -159,6 +159,14 @@ REPLUS_WEB_BASE_URL=<https-frontend-origin>
 REPLUS_WEB_CORS_ALLOWED_ORIGINS=<https-frontend-origin>
 ```
 
+Guest sessions are disabled by default in the `prod` profile. Enable them only
+for an explicit validation window until the production social-login flow is in
+place:
+
+```text
+REPLUS_AUTH_GUEST_SESSION_ENABLED=true
+```
+
 `DATABASE_URL` is the preferred Render path. Non-Render deployments can set the
 Spring datasource values directly instead:
 
@@ -257,6 +265,10 @@ To also validate the guest session and `/api/me` flow:
 ```bash
 scripts/smoke-api.sh --with-guest-auth https://<api-host>
 ```
+
+This requires `REPLUS_AUTH_GUEST_SESSION_ENABLED=true` in the deployment
+environment. Leave it disabled for normal production operation until the
+production social-login flow is available.
 
 For Render cold starts or immediately after a deploy, allow a longer request
 timeout and a few retries:
