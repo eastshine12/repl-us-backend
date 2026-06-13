@@ -16,6 +16,7 @@ The product is designed around intimacy rather than broadcast. Rooms are small, 
 - Operational health and readiness probes for deployment environments.
 - Foundation storage model for users, rooms, members, invites, missions, responses, video assets, and mission release state.
 - Bearer-session foundation with hashed token persistence before social login integration.
+- Social-login account foundation for Kakao and Apple identity linking.
 - Production guest sessions are disabled by default and can be opened only for explicit validation windows.
 
 This backend is being built in small production slices: room access, invites, daily mission policy, response upload confirmation, and social interactions are added incrementally while release workers, push notifications, and native-app integration remain separate steps.

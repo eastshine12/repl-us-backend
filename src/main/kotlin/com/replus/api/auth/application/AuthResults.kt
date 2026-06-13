@@ -1,5 +1,6 @@
 package com.replus.api.auth.application
 
+import com.replus.api.auth.domain.model.AuthProvider
 import com.replus.api.auth.domain.model.User
 import com.replus.api.mission.domain.model.Mission
 import com.replus.api.room.domain.model.Room
@@ -12,6 +13,11 @@ data class AuthSessionResult(
     val accessToken: String,
     val expiresAt: Instant,
     val user: User,
+)
+
+data class SocialLoginCommand(
+    val provider: AuthProvider,
+    val providerToken: String,
 )
 
 data class CurrentUserResult(
