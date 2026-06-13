@@ -13,6 +13,11 @@ replus:
     session-store: ${REPLUS_AUTH_SESSION_STORE:database}
     dev-fixed-tokens-enabled: false
     guest-session-enabled: ${REPLUS_AUTH_GUEST_SESSION_ENABLED:false}
+    social:
+      google:
+        client-ids: ${REPLUS_AUTH_GOOGLE_CLIENT_IDS:}
+      apple:
+        client-ids: ${REPLUS_AUTH_APPLE_CLIENT_IDS:}
   web-base-url: ${REPLUS_WEB_BASE_URL:}
   web:
     cors:
