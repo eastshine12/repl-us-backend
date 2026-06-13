@@ -1,6 +1,6 @@
 package com.replus.api.auth.domain.model
 
 enum class AuthProvider {
-    KAKAO,
+    GOOGLE,
     APPLE,
 }
