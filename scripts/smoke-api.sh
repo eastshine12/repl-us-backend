@@ -24,6 +24,7 @@ Environment:
   SMOKE_CURL_TIMEOUT_SECONDS     Per-request curl timeout. Defaults to 20.
   SMOKE_RETRY_ATTEMPTS           Attempts per request. Defaults to 1.
   SMOKE_RETRY_DELAY_SECONDS      Delay between retries. Defaults to 2.
+  SMOKE_CLEANUP_TOKEN            Optional operations token for smoke room cleanup.
 EOF
 }
 
@@ -34,6 +35,7 @@ smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-20}"
 smoke_retry_attempts="${SMOKE_RETRY_ATTEMPTS:-1}"
 smoke_retry_delay_seconds="${SMOKE_RETRY_DELAY_SECONDS:-2}"
+smoke_cleanup_token="${SMOKE_CLEANUP_TOKEN:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -211,6 +213,7 @@ run_room_flow() {
   local prompt
   local update_body
   local cleanup_body
+  local room_cleanup_body
 
   timestamp="$(date -u +%Y%m%d%H%M%S)"
   room_name="Smoke Room $timestamp"
@@ -290,6 +293,18 @@ run_room_flow() {
   require_body_contains "member cleanup" "$cleanup_body" "\"memberId\":\"$member_id\""
   require_body_contains "member cleanup" "$cleanup_body" '"status":"REMOVED"'
   echo "member cleanup: ok"
+
+  if [[ -n "$smoke_cleanup_token" ]]; then
+    room_cleanup_body="$(
+      request DELETE "/internal/operations/smoke-rooms/$room_id" \
+        -H "X-Replus-Operations-Token: $smoke_cleanup_token"
+    )"
+    require_body_contains "room cleanup" "$room_cleanup_body" "\"roomId\":\"$room_id\""
+    require_body_contains "room cleanup" "$room_cleanup_body" '"deleted":true'
+    echo "room cleanup: ok"
+  else
+    echo "room cleanup: skipped"
+  fi
 }
 
 assert_status_up "liveness" "/actuator/health/liveness"

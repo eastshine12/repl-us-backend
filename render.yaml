@@ -38,3 +38,7 @@ services:
         value: "false"
       - key: REPLUS_MISSION_LIFECYCLE_SCHEDULER_ENABLED
         value: "false"
+      - key: REPLUS_OPERATIONS_SMOKE_CLEANUP_ENABLED
+        sync: false
+      - key: REPLUS_OPERATIONS_SMOKE_CLEANUP_TOKEN
+        sync: false

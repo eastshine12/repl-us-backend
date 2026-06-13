@@ -48,6 +48,17 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].envVars[$storageModeIndex].value"]).isNull()
     }
 
+    @Test
+    fun `api service keeps smoke cleanup managed in the render dashboard`() {
+        val enabledIndex = envVarIndexFor("REPLUS_OPERATIONS_SMOKE_CLEANUP_ENABLED")
+        val tokenIndex = envVarIndexFor("REPLUS_OPERATIONS_SMOKE_CLEANUP_TOKEN")
+
+        assertThat(properties["services[0].envVars[$enabledIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$enabledIndex].value"]).isNull()
+        assertThat(properties["services[0].envVars[$tokenIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$tokenIndex].value"]).isNull()
+    }
+
     private fun envVarIndexFor(key: String): Int {
         for (index in 0..50) {
             if (properties["services[0].envVars[$index].key"] == key) {
