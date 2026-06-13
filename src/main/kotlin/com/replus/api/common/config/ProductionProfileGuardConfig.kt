@@ -27,6 +27,10 @@ class ProductionProfileGuardConfig {
             require(!environment.getBooleanProperty("replus.auth.dev-fixed-tokens-enabled", defaultValue = false)) {
                 "replus.auth.dev-fixed-tokens-enabled must be false when the prod profile is active"
             }
+            val sessionStore = environment.getProperty("replus.auth.session-store").orEmpty().trim()
+            require(sessionStore.equals("database", ignoreCase = true)) {
+                "replus.auth.session-store must be database when the prod profile is active"
+            }
             require(!environment.getBooleanProperty("spring.h2.console.enabled", defaultValue = false)) {
                 "spring.h2.console.enabled must be false when the prod profile is active"
             }

@@ -20,6 +20,8 @@ services:
         fromDatabase:
           name: repl-us-postgres
           property: connectionString
+      - key: REPLUS_AUTH_SESSION_STORE
+        sync: false
       - key: REPLUS_AUTH_GUEST_SESSION_ENABLED
         sync: false
       - key: REPLUS_WEB_CORS_ALLOWED_ORIGINS

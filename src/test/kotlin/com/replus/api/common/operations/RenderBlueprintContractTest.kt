@@ -67,6 +67,14 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].envVars[$guestSessionIndex].value"]).isNull()
     }
 
+    @Test
+    fun `api service keeps auth session store managed in the render dashboard`() {
+        val sessionStoreIndex = envVarIndexFor("REPLUS_AUTH_SESSION_STORE")
+
+        assertThat(properties["services[0].envVars[$sessionStoreIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$sessionStoreIndex].value"]).isNull()
+    }
+
     private fun envVarIndexFor(key: String): Int {
         for (index in 0..50) {
             if (properties["services[0].envVars[$index].key"] == key) {
