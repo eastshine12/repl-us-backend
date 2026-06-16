@@ -307,6 +307,22 @@ scripts/smoke-api.sh --with-social-auth-failure https://<api-host>
 This check is safe to run in normal production because it does not create users
 or sessions.
 
+After Google or Apple client IDs are configured, validate the full social-login
+session flow with a short-lived test id token. Do not commit or paste the token
+into issue comments, PRs, or logs:
+
+```bash
+export SMOKE_SOCIAL_AUTH_PROVIDER=GOOGLE
+read -r -s SMOKE_SOCIAL_AUTH_TOKEN
+export SMOKE_SOCIAL_AUTH_TOKEN
+scripts/smoke-api.sh --with-social-auth-success https://<api-host>
+unset SMOKE_SOCIAL_AUTH_TOKEN
+```
+
+Use `SMOKE_SOCIAL_AUTH_PROVIDER=APPLE` when validating an Apple id token. The
+success smoke creates or reuses the social-login user and then verifies `/api/me`
+with the issued backend bearer session.
+
 For Render cold starts or immediately after a deploy, allow a longer request
 timeout and a few retries:
 

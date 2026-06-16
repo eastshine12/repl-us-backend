@@ -4,20 +4,22 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/smoke-api.sh [--with-social-auth-failure] [--with-guest-auth] [--with-room-flow] <api-base-url>
-  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--with-social-auth-failure] [--with-guest-auth] [--with-room-flow]
+  scripts/smoke-api.sh [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
+  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
 
 Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
   - /actuator/info
   - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
+  - /api/auth/social and /api/me with a real provider token when --with-social-auth-success is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
   - room create, invite join, and /api/rooms/{roomId}/today when --with-room-flow is provided
 
 Examples:
   scripts/smoke-api.sh https://api.example.com
   scripts/smoke-api.sh --with-social-auth-failure https://api.example.com
+  SMOKE_SOCIAL_AUTH_TOKEN=<id-token> scripts/smoke-api.sh --with-social-auth-success https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
   scripts/smoke-api.sh --with-room-flow https://api.example.com
 
@@ -26,6 +28,8 @@ Environment:
   SMOKE_CURL_TIMEOUT_SECONDS     Per-request curl timeout. Defaults to 20.
   SMOKE_RETRY_ATTEMPTS           Attempts per request. Defaults to 1.
   SMOKE_RETRY_DELAY_SECONDS      Delay between retries. Defaults to 2.
+  SMOKE_SOCIAL_AUTH_PROVIDER     GOOGLE or APPLE for --with-social-auth-success. Defaults to GOOGLE.
+  SMOKE_SOCIAL_AUTH_TOKEN        Real provider id token for --with-social-auth-success.
   SMOKE_CLEANUP_TOKEN            Optional operations token for smoke room cleanup.
 EOF
 }
@@ -33,11 +37,14 @@ EOF
 with_guest_auth=false
 with_room_flow=false
 with_social_auth_failure=false
+with_social_auth_success=false
 base_url="${API_BASE_URL:-}"
 smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-20}"
 smoke_retry_attempts="${SMOKE_RETRY_ATTEMPTS:-1}"
 smoke_retry_delay_seconds="${SMOKE_RETRY_DELAY_SECONDS:-2}"
+smoke_social_auth_provider="${SMOKE_SOCIAL_AUTH_PROVIDER:-GOOGLE}"
+smoke_social_auth_token="${SMOKE_SOCIAL_AUTH_TOKEN:-}"
 smoke_cleanup_token="${SMOKE_CLEANUP_TOKEN:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -48,6 +55,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-social-auth-failure)
       with_social_auth_failure=true
+      shift
+      ;;
+    --with-social-auth-success)
+      with_social_auth_success=true
       shift
       ;;
     --with-room-flow)
@@ -96,6 +107,17 @@ require_integer_at_least "SMOKE_CONNECT_TIMEOUT_SECONDS" "$smoke_connect_timeout
 require_integer_at_least "SMOKE_CURL_TIMEOUT_SECONDS" "$smoke_curl_timeout_seconds" 1
 require_integer_at_least "SMOKE_RETRY_ATTEMPTS" "$smoke_retry_attempts" 1
 require_integer_at_least "SMOKE_RETRY_DELAY_SECONDS" "$smoke_retry_delay_seconds" 0
+
+if [[ "$with_social_auth_success" == "true" ]]; then
+  if [[ -z "$smoke_social_auth_token" ]]; then
+    echo "SMOKE_SOCIAL_AUTH_TOKEN is required when --with-social-auth-success is provided" >&2
+    exit 64
+  fi
+  if [[ "$smoke_social_auth_provider" != "GOOGLE" && "$smoke_social_auth_provider" != "APPLE" ]]; then
+    echo "SMOKE_SOCIAL_AUTH_PROVIDER must be GOOGLE or APPLE" >&2
+    exit 64
+  fi
+fi
 
 base_url="${base_url%/}"
 
@@ -191,6 +213,16 @@ assert_status_up() {
 
 extract_access_token() {
   sed -nE 's/.*"accessToken"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p'
+}
+
+json_escape() {
+  local value="$1"
+
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/}"
+  value="${value//$'\r'/}"
+  printf '%s' "$value"
 }
 
 extract_json_string() {
@@ -374,6 +406,42 @@ run_social_auth_failure_check() {
   echo "social auth rejection: ok"
 }
 
+run_social_auth_success_check() {
+  local provider_token_json
+  local response
+  local status
+  local body
+  local access_token
+  local me_body
+
+  provider_token_json="$(json_escape "$smoke_social_auth_token")"
+  response="$(
+    request_with_status POST "/api/auth/social" \
+      -H "Content-Type: application/json" \
+      --data "{\"provider\":\"$smoke_social_auth_provider\",\"providerToken\":\"$provider_token_json\"}"
+  )"
+  status="$(printf '%s' "$response" | tail -n 1)"
+  body="$(printf '%s' "$response" | sed '$d')"
+
+  if [[ "$status" != "201" ]]; then
+    echo "social auth: expected 201, got $status with body $body" >&2
+    exit 1
+  fi
+  access_token="$(printf '%s' "$body" | extract_access_token)"
+  require_value "social auth" "$access_token"
+  echo "social auth: ok"
+
+  me_body="$(
+    request GET "/api/me" \
+      -H "Authorization: Bearer $access_token"
+  )"
+  if [[ "$me_body" != *'"rooms"'* ]]; then
+    echo "social current user: rooms missing from response" >&2
+    exit 1
+  fi
+  echo "social current user: ok"
+}
+
 assert_status_up "liveness" "/actuator/health/liveness"
 assert_status_up "readiness" "/actuator/health/readiness"
 
@@ -386,6 +454,10 @@ echo "info: ok"
 
 if [[ "$with_social_auth_failure" == "true" ]]; then
   run_social_auth_failure_check
+fi
+
+if [[ "$with_social_auth_success" == "true" ]]; then
+  run_social_auth_success_check
 fi
 
 if [[ "$with_guest_auth" == "true" ]]; then
