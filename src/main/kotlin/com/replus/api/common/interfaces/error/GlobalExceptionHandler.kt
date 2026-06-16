@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -54,6 +55,14 @@ class GlobalExceptionHandler {
                     fieldErrors = fieldErrors,
                 ),
             )
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleUnreadableMessageException(): ResponseEntity<ProblemDetailsResponse> {
+        val status = HttpStatus.BAD_REQUEST
+        return ResponseEntity
+            .status(status)
+            .body(ErrorType.INVALID_REQUEST.toProblem(status, ErrorType.INVALID_REQUEST.defaultMessage))
     }
 
     @ExceptionHandler(Exception::class)
