@@ -56,6 +56,37 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /api/auth/social:
+    post:
+      tags:
+        - Auth
+      operationId: createSocialSession
+      security: []
+      summary: Create a session from a Google or Apple identity token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SocialLoginRequest"
+      responses:
+        "201":
+          description: Social session created
+          headers:
+            Cache-Control:
+              description: Auth session responses are not cacheable.
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/me:
     get:
       tags:
@@ -636,6 +667,23 @@ components:
           minLength: 1
           maxLength: 24
           example: Mina
+
+    SocialLoginRequest:
+      type: object
+      required:
+        - provider
+        - providerToken
+      properties:
+        provider:
+          type: string
+          enum:
+            - GOOGLE
+            - APPLE
+        providerToken:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          description: Google or Apple OIDC identity token issued to the configured app client id.
 
     AuthSession:
       type: object

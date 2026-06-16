@@ -1,6 +1,8 @@
 package com.replus.api.auth.interfaces.rest
 
 import com.replus.api.auth.application.AuthFacade
+import com.replus.api.auth.application.AuthSessionResult
+import com.replus.api.auth.application.SocialLoginCommand
 import com.replus.api.common.interfaces.rest.dto.RoomTodayResponseStatus
 import com.replus.api.common.interfaces.rest.dto.RoomTodaySummaryResponse
 import com.replus.api.common.interfaces.rest.dto.toResponse
@@ -27,17 +29,34 @@ class AuthController(
         request: CreateGuestSessionRequest?,
     ): ResponseEntity<AuthSessionResponse> {
         val result = authFacade.createGuestSession(request?.displayName)
-        return ResponseEntity
+        return result.toCreatedSessionResponse()
+    }
+
+    @PostMapping("/api/auth/social")
+    fun createSocialSession(
+        @Valid @RequestBody
+        request: SocialLoginRequest,
+    ): ResponseEntity<AuthSessionResponse> {
+        val result = authFacade.loginWithSocialProvider(
+            SocialLoginCommand(
+                provider = request.provider,
+                providerToken = request.providerToken,
+            ),
+        )
+        return result.toCreatedSessionResponse()
+    }
+
+    private fun AuthSessionResult.toCreatedSessionResponse(): ResponseEntity<AuthSessionResponse> =
+        ResponseEntity
             .status(HttpStatus.CREATED)
             .cacheControl(CacheControl.noStore())
             .body(
                 AuthSessionResponse(
-                    accessToken = result.accessToken,
-                    expiresAt = result.expiresAt,
-                    user = result.user.toResponse(),
+                    accessToken = accessToken,
+                    expiresAt = expiresAt,
+                    user = user.toResponse(),
                 ),
             )
-    }
 
     @GetMapping("/api/me")
     fun getCurrentUser(
