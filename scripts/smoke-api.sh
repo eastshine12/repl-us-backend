@@ -43,7 +43,7 @@ smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-20}"
 smoke_retry_attempts="${SMOKE_RETRY_ATTEMPTS:-1}"
 smoke_retry_delay_seconds="${SMOKE_RETRY_DELAY_SECONDS:-2}"
-smoke_social_auth_provider="${SMOKE_SOCIAL_AUTH_PROVIDER:-GOOGLE}"
+smoke_social_auth_provider="$(printf '%s' "${SMOKE_SOCIAL_AUTH_PROVIDER:-GOOGLE}" | tr '[:lower:]' '[:upper:]')"
 smoke_social_auth_token="${SMOKE_SOCIAL_AUTH_TOKEN:-}"
 smoke_cleanup_token="${SMOKE_CLEANUP_TOKEN:-}"
 

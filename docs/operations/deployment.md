@@ -320,8 +320,9 @@ unset SMOKE_SOCIAL_AUTH_TOKEN
 ```
 
 Use `SMOKE_SOCIAL_AUTH_PROVIDER=APPLE` when validating an Apple id token. The
-success smoke creates or reuses the social-login user and then verifies `/api/me`
-with the issued backend bearer session.
+provider value is case-insensitive. The success smoke creates or reuses the
+social-login user and then verifies `/api/me` with the issued backend bearer
+session.
 
 For Render cold starts or immediately after a deploy, allow a longer request
 timeout and a few retries:
