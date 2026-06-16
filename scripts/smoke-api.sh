@@ -4,18 +4,20 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/smoke-api.sh [--with-guest-auth] [--with-room-flow] <api-base-url>
-  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--with-guest-auth] [--with-room-flow]
+  scripts/smoke-api.sh [--with-social-auth-failure] [--with-guest-auth] [--with-room-flow] <api-base-url>
+  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--with-social-auth-failure] [--with-guest-auth] [--with-room-flow]
 
 Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
   - /actuator/info
+  - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
   - room create, invite join, and /api/rooms/{roomId}/today when --with-room-flow is provided
 
 Examples:
   scripts/smoke-api.sh https://api.example.com
+  scripts/smoke-api.sh --with-social-auth-failure https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
   scripts/smoke-api.sh --with-room-flow https://api.example.com
 
@@ -30,6 +32,7 @@ EOF
 
 with_guest_auth=false
 with_room_flow=false
+with_social_auth_failure=false
 base_url="${API_BASE_URL:-}"
 smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-20}"
@@ -41,6 +44,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-guest-auth)
       with_guest_auth=true
+      shift
+      ;;
+    --with-social-auth-failure)
+      with_social_auth_failure=true
       shift
       ;;
     --with-room-flow)
@@ -107,6 +114,45 @@ request() {
         --connect-timeout "$smoke_connect_timeout_seconds" \
         --max-time "$smoke_curl_timeout_seconds" \
         -X "$method" \
+        "$@" \
+        "$base_url$path" \
+        2>&1
+    )"; then
+      printf '%s' "$output"
+      return 0
+    fi
+
+    exit_code=$?
+    if (( attempt >= smoke_retry_attempts )); then
+      printf '%s\n' "$output" >&2
+      return "$exit_code"
+    fi
+
+    printf 'retrying %s %s after curl failure (%s/%s)\n' \
+      "$method" "$path" "$attempt" "$smoke_retry_attempts" >&2
+    if (( smoke_retry_delay_seconds > 0 )); then
+      sleep "$smoke_retry_delay_seconds"
+    fi
+    attempt=$((attempt + 1))
+  done
+}
+
+request_with_status() {
+  local method="$1"
+  local path="$2"
+  shift 2
+
+  local attempt=1
+  local output
+  local exit_code
+
+  while true; do
+    if output="$(
+      curl -sS \
+        --connect-timeout "$smoke_connect_timeout_seconds" \
+        --max-time "$smoke_curl_timeout_seconds" \
+        -X "$method" \
+        -w $'\n%{http_code}' \
         "$@" \
         "$base_url$path" \
         2>&1
@@ -307,6 +353,27 @@ run_room_flow() {
   fi
 }
 
+run_social_auth_failure_check() {
+  local response
+  local status
+  local body
+
+  response="$(
+    request_with_status POST "/api/auth/social" \
+      -H "Content-Type: application/json" \
+      --data '{"provider":"GOOGLE","providerToken":"smoke-invalid-token"}'
+  )"
+  status="$(printf '%s' "$response" | tail -n 1)"
+  body="$(printf '%s' "$response" | sed '$d')"
+
+  if [[ "$status" != "401" ]]; then
+    echo "social auth rejection: expected 401, got $status with body $body" >&2
+    exit 1
+  fi
+  require_body_contains "social auth rejection" "$body" '"code":"UNAUTHENTICATED"'
+  echo "social auth rejection: ok"
+}
+
 assert_status_up "liveness" "/actuator/health/liveness"
 assert_status_up "readiness" "/actuator/health/readiness"
 
@@ -316,6 +383,10 @@ if [[ "$info_body" != *'"name":"repl.us backend"'* ]]; then
   exit 1
 fi
 echo "info: ok"
+
+if [[ "$with_social_auth_failure" == "true" ]]; then
+  run_social_auth_failure_check
+fi
 
 if [[ "$with_guest_auth" == "true" ]]; then
   access_token="$(create_guest_session "Smoke Test")"
