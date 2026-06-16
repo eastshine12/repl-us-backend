@@ -1,5 +1,6 @@
 package com.replus.api.common.operations
 
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -12,6 +13,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @SpringBootTest(
     properties = [
         "management.endpoint.health.show-details=always",
+        "replus.auth.social.google.client-ids=google-web-client-id,google-ios-client-id",
+        "replus.auth.social.apple.client-ids= ",
     ],
 )
 @AutoConfigureMockMvc
@@ -56,5 +59,18 @@ class OperationalReadinessApiTest {
             .andExpect(jsonPath("$.build.version").value("0.1.0-SNAPSHOT"))
             .andExpect(jsonPath("$.git.branch").exists())
             .andExpect(jsonPath("$.git.commit.id").exists())
+    }
+
+    @Test
+    fun `info endpoint exposes social login configuration state without client ids`() {
+        val result = mockMvc.perform(get("/actuator/info"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.auth.social.providers.google.clientIdsConfigured").value(true))
+            .andExpect(jsonPath("$.auth.social.providers.apple.clientIdsConfigured").value(false))
+            .andReturn()
+
+        assertThat(result.response.contentAsString)
+            .doesNotContain("google-web-client-id")
+            .doesNotContain("google-ios-client-id")
     }
 }

@@ -334,6 +334,9 @@ Expected result:
 - Readiness status is `UP`.
 - Readiness includes `db` and `storage` components.
 - Info includes the public app metadata, build version, and git commit id.
+- Info includes `auth.social.providers.*.clientIdsConfigured` booleans so the
+  deployed Google and Apple login configuration can be checked without exposing
+  the actual client IDs.
 
 If readiness is down, inspect the platform logs first. The production guard is
 designed to fail early with clear messages for unsafe configuration.
