@@ -75,6 +75,17 @@ class RenderBlueprintContractTest {
         assertThat(properties["services[0].envVars[$sessionStoreIndex].value"]).isNull()
     }
 
+    @Test
+    fun `api service keeps social login client ids managed in the render dashboard`() {
+        val googleClientIdsIndex = envVarIndexFor("REPLUS_AUTH_GOOGLE_CLIENT_IDS")
+        val appleClientIdsIndex = envVarIndexFor("REPLUS_AUTH_APPLE_CLIENT_IDS")
+
+        assertThat(properties["services[0].envVars[$googleClientIdsIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$googleClientIdsIndex].value"]).isNull()
+        assertThat(properties["services[0].envVars[$appleClientIdsIndex].sync"]).isEqualTo(false)
+        assertThat(properties["services[0].envVars[$appleClientIdsIndex].value"]).isNull()
+    }
+
     private fun envVarIndexFor(key: String): Int {
         for (index in 0..50) {
             if (properties["services[0].envVars[$index].key"] == key) {
