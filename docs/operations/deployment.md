@@ -168,6 +168,18 @@ place:
 REPLUS_AUTH_GUEST_SESSION_ENABLED=true
 ```
 
+For production social login, configure the Google and Apple OIDC audiences that
+the backend should accept. Values are comma-separated because one provider can
+issue tokens to multiple app clients, such as web and native clients:
+
+```text
+REPLUS_AUTH_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
+REPLUS_AUTH_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
+```
+
+If these values are omitted, `/api/auth/social` still deploys but fails closed:
+all provider tokens are rejected with `401 UNAUTHENTICATED`.
+
 Production sessions are database-backed by default. Keep the explicit value in
 the hosting dashboard so a deployment cannot accidentally fall back to in-memory
 sessions:
@@ -277,9 +289,19 @@ To also validate the guest session and `/api/me` flow:
 scripts/smoke-api.sh --with-guest-auth https://<api-host>
 ```
 
-This requires `REPLUS_AUTH_GUEST_SESSION_ENABLED=true` in the deployment
-environment. Leave it disabled for normal production operation until the
-production social-login flow is available.
+The guest-auth check requires `REPLUS_AUTH_GUEST_SESSION_ENABLED=true` in the
+deployment environment. Leave it disabled for normal production operation until
+the production social-login flow is available.
+
+To validate that the deployed social-login endpoint exists and rejects invalid
+tokens without needing real Google or Apple credentials:
+
+```bash
+scripts/smoke-api.sh --with-social-auth-failure https://<api-host>
+```
+
+This check is safe to run in normal production because it does not create users
+or sessions.
 
 For Render cold starts or immediately after a deploy, allow a longer request
 timeout and a few retries:
@@ -288,7 +310,7 @@ timeout and a few retries:
 SMOKE_CURL_TIMEOUT_SECONDS=180 \
 SMOKE_RETRY_ATTEMPTS=6 \
 SMOKE_RETRY_DELAY_SECONDS=10 \
-scripts/smoke-api.sh --with-guest-auth https://<api-host>
+scripts/smoke-api.sh --with-social-auth-failure https://<api-host>
 ```
 
 The guest-auth smoke creates a guest user, so reserve it for a smoke

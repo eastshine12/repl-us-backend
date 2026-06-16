@@ -42,6 +42,31 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script checks social auth endpoint rejects invalid tokens when requested`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val receivedSocialLoginBodies = mutableListOf<String>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            receivedSocialLoginBodies = receivedSocialLoginBodies,
+        )
+
+        val result = runSmokeScript("--with-social-auth-failure", fakeApi)
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains(
+            "liveness: ok",
+            "readiness: ok",
+            "info: ok",
+            "social auth rejection: ok",
+        )
+        assertThat(receivedSocialLoginBodies).containsExactly(
+            """{"provider":"GOOGLE","providerToken":"smoke-invalid-token"}""",
+        )
+    }
+
+    @Test
     fun `smoke script checks room invite and today mission flow when requested`() {
         val receivedAuthorizationHeaders = mutableListOf<String?>()
         val receivedDisplayNames = mutableListOf<String>()
@@ -115,7 +140,9 @@ class SmokeApiScriptTest {
         assertThat(result.output).contains(
             "--with-guest-auth",
             "--with-room-flow",
+            "--with-social-auth-failure",
             "/actuator/health/readiness",
+            "/api/auth/social",
             "/api/rooms/{roomId}/today",
             "SMOKE_CLEANUP_TOKEN",
             "SMOKE_CURL_TIMEOUT_SECONDS",
@@ -162,6 +189,7 @@ class SmokeApiScriptTest {
         receivedAuthorizationHeaders: MutableList<String?>,
         receivedDisplayNames: MutableList<String> = mutableListOf(),
         receivedOperationsTokens: MutableList<String?> = mutableListOf(),
+        receivedSocialLoginBodies: MutableList<String> = mutableListOf(),
     ): String {
         val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server = httpServer
@@ -191,6 +219,14 @@ class SmokeApiScriptTest {
             guestSessionCount += 1
             val token = if (guestSessionCount == 1) "smoke-token" else "smoke-member-token"
             exchange.respond("""{"accessToken":"$token","tokenType":"Bearer","user":{"id":"smoke-user-$guestSessionCount"}}""")
+        }
+        httpServer.createContext("/api/auth/social") { exchange ->
+            assertThat(exchange.requestMethod).isEqualTo("POST")
+            receivedSocialLoginBodies += exchange.requestBody.readAllBytes().toString(StandardCharsets.UTF_8)
+            exchange.respond(
+                """{"title":"Unauthorized","status":401,"code":"UNAUTHENTICATED"}""",
+                status = 401,
+            )
         }
         httpServer.createContext("/api/me") { exchange ->
             receivedAuthorizationHeaders += exchange.requestHeaders.getFirst("Authorization")
