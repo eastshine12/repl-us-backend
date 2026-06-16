@@ -181,6 +181,9 @@ REPLUS_AUTH_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
 REPLUS_AUTH_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
 
+Detailed provider setup and smoke validation steps live in
+[social-login-setup.md](social-login-setup.md).
+
 If these values are omitted, `/api/auth/social` still deploys but fails closed:
 all provider tokens are rejected with `401 UNAUTHENTICATED`.
 
