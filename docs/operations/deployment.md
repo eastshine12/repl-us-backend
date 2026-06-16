@@ -70,6 +70,7 @@ reaching the Render environment just because it was merged to `main`.
 Before applying the blueprint, prepare:
 
 - Explicit HTTPS frontend origins for `REPLUS_WEB_CORS_ALLOWED_ORIGINS`.
+- Google and Apple app client IDs for social-login validation.
 - A storage mode for the target environment. Use local storage only for the
   first backend smoke deploy; use object storage for upload-flow validation.
 - Object storage values for response-video uploads when object storage is used.
@@ -81,6 +82,9 @@ datasource properties during startup.
 After the blueprint creates the service, set every `sync: false` value in the
 Render Dashboard before expecting the service to become healthy. Missing values
 are intentionally caught by the production guard during startup.
+Google and Apple social-login client IDs are also `sync: false` values so they
+can be added through the Render Dashboard without committing app identifiers to
+the repository.
 
 ## Render First Deploy Checklist
 
