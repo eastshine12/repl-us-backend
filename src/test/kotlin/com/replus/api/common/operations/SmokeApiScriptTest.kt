@@ -79,7 +79,7 @@ class SmokeApiScriptTest {
             "--with-social-auth-success",
             fakeApi,
             environment = mapOf(
-                "SMOKE_SOCIAL_AUTH_PROVIDER" to "APPLE",
+                "SMOKE_SOCIAL_AUTH_PROVIDER" to "apple",
                 "SMOKE_SOCIAL_AUTH_TOKEN" to "real-social-token",
             ),
         )
