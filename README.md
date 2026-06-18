@@ -104,10 +104,12 @@ Deployment notes and production safety checks live in [docs/operations/deploymen
 
 ## API Documentation
 
-The current API contract lives in:
+The current API contract lives in the repository and is also exposed by a
+running backend service:
 
 ```text
 docs/api/openapi.yaml
+GET /api-docs/openapi.yaml
 ```
 
 Keep this contract in sync with client integration work.

@@ -25,4 +25,9 @@ class DockerfileContractTest {
         assertThat(dockerignore.lines()).contains(".git")
         assertThat(dockerfile).doesNotContain("COPY .git ./.git")
     }
+
+    @Test
+    fun `docker build includes api documentation resources`() {
+        assertThat(dockerfile).contains("COPY docs/api ./docs/api")
+    }
 }
