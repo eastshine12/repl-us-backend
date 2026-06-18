@@ -346,6 +346,7 @@ After deployment, check:
 curl -fsS https://<api-host>/actuator/health/liveness
 curl -fsS https://<api-host>/actuator/health/readiness
 curl -fsS https://<api-host>/actuator/info
+curl -fsS https://<api-host>/api-docs/openapi.yaml
 ```
 
 Expected result:
@@ -357,6 +358,8 @@ Expected result:
 - Info includes `auth.social.providers.*.clientIdsConfigured` booleans so the
   deployed Google and Apple login configuration can be checked without exposing
   the actual client IDs.
+- `/api-docs/openapi.yaml` returns the public OpenAPI contract that is shipped
+  with the deployed backend artifact.
 
 If readiness is down, inspect the platform logs first. The production guard is
 designed to fail early with clear messages for unsafe configuration.

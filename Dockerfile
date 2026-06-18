@@ -8,6 +8,7 @@ COPY gradle ./gradle
 RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon
 
 COPY src ./src
+COPY docs/api ./docs/api
 
 ARG REPLUS_BUILD_GIT_COMMIT=
 ARG REPLUS_BUILD_GIT_BRANCH=

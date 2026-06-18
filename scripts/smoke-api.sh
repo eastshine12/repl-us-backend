@@ -11,6 +11,7 @@ Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
   - /actuator/info
+  - /api-docs/openapi.yaml
   - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
   - /api/auth/social and /api/me with a real provider token when --with-social-auth-success is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
@@ -451,6 +452,13 @@ if [[ "$info_body" != *'"name":"repl.us backend"'* ]]; then
   exit 1
 fi
 echo "info: ok"
+
+api_docs_body="$(request GET "/api-docs/openapi.yaml")"
+if [[ "$api_docs_body" != openapi:\ 3.0.3* || "$api_docs_body" != *'/api/auth/social:'* ]]; then
+  echo "api docs: openapi contract missing from response" >&2
+  exit 1
+fi
+echo "api docs: ok"
 
 if [[ "$with_social_auth_failure" == "true" ]]; then
   run_social_auth_failure_check

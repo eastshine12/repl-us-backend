@@ -35,6 +35,7 @@ class SmokeApiScriptTest {
             "liveness: ok",
             "readiness: ok",
             "info: ok",
+            "api docs: ok",
             "guest auth: ok",
             "current user: ok",
         )
@@ -59,6 +60,7 @@ class SmokeApiScriptTest {
             "liveness: ok",
             "readiness: ok",
             "info: ok",
+            "api docs: ok",
             "social auth rejection: ok",
         )
         assertThat(receivedSocialLoginBodies).containsExactly(
@@ -91,6 +93,7 @@ class SmokeApiScriptTest {
             "liveness: ok",
             "readiness: ok",
             "info: ok",
+            "api docs: ok",
             "social auth: ok",
             "social current user: ok",
         )
@@ -127,6 +130,7 @@ class SmokeApiScriptTest {
             "liveness: ok",
             "readiness: ok",
             "info: ok",
+            "api docs: ok",
             "guest auth: ok",
             "current user: ok",
             "room create: ok",
@@ -189,6 +193,7 @@ class SmokeApiScriptTest {
             "--with-social-auth-failure",
             "--with-social-auth-success",
             "/actuator/health/readiness",
+            "/api-docs/openapi.yaml",
             "/api/auth/social",
             "/api/rooms/{roomId}/today",
             "SMOKE_CLEANUP_TOKEN",
@@ -229,7 +234,7 @@ class SmokeApiScriptTest {
         )
 
         assertThat(result.exitCode).isEqualTo(0)
-        assertThat(result.output).contains("liveness: ok", "readiness: ok", "info: ok")
+        assertThat(result.output).contains("liveness: ok", "readiness: ok", "info: ok", "api docs: ok")
         assertThat(fakeCurl.readinessCount.readText().trim()).isEqualTo("2")
     }
 
@@ -255,6 +260,19 @@ class SmokeApiScriptTest {
         }
         httpServer.createContext("/actuator/info") { exchange ->
             exchange.respond("""{"app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"}}""")
+        }
+        httpServer.createContext("/api-docs/openapi.yaml") { exchange ->
+            exchange.respond(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Three Second Room MVP API
+                paths:
+                  /api/auth/social: {}
+                  /api/rooms/{roomId}/today: {}
+                """.trimIndent(),
+                contentType = "application/yaml",
+            )
         }
         httpServer.createContext("/api/auth/guest") { exchange ->
             assertThat(exchange.requestMethod).isEqualTo("POST")
@@ -430,6 +448,14 @@ class SmokeApiScriptTest {
               */actuator/info)
                 printf '{"app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"}}'
                 ;;
+              */api-docs/openapi.yaml)
+                printf 'openapi: 3.0.3
+info:
+  title: Three Second Room MVP API
+paths:
+  /api/auth/social: {}
+  /api/rooms/{roomId}/today: {}'
+                ;;
               */api/auth/guest)
                 printf '{"accessToken":"smoke-token","tokenType":"Bearer","user":{"id":"smoke-user"}}'
                 ;;
@@ -466,8 +492,8 @@ class SmokeApiScriptTest {
         return ScriptResult(exitCode, output)
     }
 
-    private fun HttpExchange.respond(body: String, status: Int = 200) {
-        responseHeaders.add("Content-Type", "application/json")
+    private fun HttpExchange.respond(body: String, status: Int = 200, contentType: String = "application/json") {
+        responseHeaders.add("Content-Type", contentType)
         val bytes = body.toByteArray(StandardCharsets.UTF_8)
         sendResponseHeaders(status, bytes.size.toLong())
         responseBody.use { it.write(bytes) }

@@ -167,6 +167,7 @@ val generateGitProperties by tasks.registering {
 sourceSets {
     main {
         resources.srcDir(generatedGitPropertiesDir)
+        resources.srcDir(layout.projectDirectory.dir("docs"))
     }
 }
 
