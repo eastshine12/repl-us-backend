@@ -113,3 +113,5 @@ GET /api-docs/openapi.yaml
 ```
 
 Keep this contract in sync with client integration work.
+Known frontend/backend confirmation items are tracked in
+[docs/api/frontend-backend-contract-gaps.md](docs/api/frontend-backend-contract-gaps.md).
