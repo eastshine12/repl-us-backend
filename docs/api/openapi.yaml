@@ -19,6 +19,7 @@ servers:
 security:
   - BearerAuth: []
 tags:
+  - name: Documentation
   - name: Auth
   - name: Rooms
   - name: Missions
@@ -27,6 +28,21 @@ tags:
   - name: Wall
   - name: Growth
 paths:
+  /api-docs/openapi.yaml:
+    get:
+      tags:
+        - Documentation
+      operationId: getOpenApiYaml
+      security: []
+      summary: Get the deployed OpenAPI contract
+      responses:
+        "200":
+          description: OpenAPI YAML document
+          content:
+            application/yaml:
+              schema:
+                type: string
+
   /api/auth/guest:
     post:
       tags:
