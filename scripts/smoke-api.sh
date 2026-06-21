@@ -458,6 +458,10 @@ if [[ "$api_docs_body" != openapi:\ 3.0.3* || "$api_docs_body" != *'/api/auth/so
   echo "api docs: openapi contract missing from response" >&2
   exit 1
 fi
+if [[ "$api_docs_body" != *'/api-docs/openapi.yaml:'* || "$api_docs_body" != *'operationId: getOpenApiYaml'* ]]; then
+  echo "api docs: deployed docs operation missing from response" >&2
+  exit 1
+fi
 echo "api docs: ok"
 
 if [[ "$with_social_auth_failure" == "true" ]]; then

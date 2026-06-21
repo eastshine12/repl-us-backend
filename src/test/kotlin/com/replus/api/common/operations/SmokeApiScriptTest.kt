@@ -43,6 +43,27 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script rejects openapi contract without deployed docs operation`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            openApiYaml = """
+                openapi: 3.0.3
+                info:
+                  title: Three Second Room MVP API
+                paths:
+                  /api/auth/social: {}
+                  /api/rooms/{roomId}/today: {}
+            """.trimIndent(),
+        )
+
+        val result = runSmokeScript(fakeApi)
+
+        assertThat(result.exitCode).isEqualTo(1)
+        assertThat(result.output).contains("api docs: deployed docs operation missing from response")
+    }
+
+    @Test
     fun `smoke script checks social auth endpoint rejects invalid tokens when requested`() {
         val receivedAuthorizationHeaders = mutableListOf<String?>()
         val receivedSocialLoginBodies = mutableListOf<String>()
@@ -243,6 +264,17 @@ class SmokeApiScriptTest {
         receivedDisplayNames: MutableList<String> = mutableListOf(),
         receivedOperationsTokens: MutableList<String?> = mutableListOf(),
         receivedSocialLoginBodies: MutableList<String> = mutableListOf(),
+        openApiYaml: String = """
+            openapi: 3.0.3
+            info:
+              title: Three Second Room MVP API
+            paths:
+              /api-docs/openapi.yaml:
+                get:
+                  operationId: getOpenApiYaml
+              /api/auth/social: {}
+              /api/rooms/{roomId}/today: {}
+        """.trimIndent(),
     ): String {
         val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server = httpServer
@@ -262,17 +294,7 @@ class SmokeApiScriptTest {
             exchange.respond("""{"app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"}}""")
         }
         httpServer.createContext("/api-docs/openapi.yaml") { exchange ->
-            exchange.respond(
-                """
-                openapi: 3.0.3
-                info:
-                  title: Three Second Room MVP API
-                paths:
-                  /api/auth/social: {}
-                  /api/rooms/{roomId}/today: {}
-                """.trimIndent(),
-                contentType = "application/yaml",
-            )
+            exchange.respond(openApiYaml, contentType = "application/yaml")
         }
         httpServer.createContext("/api/auth/guest") { exchange ->
             assertThat(exchange.requestMethod).isEqualTo("POST")
@@ -453,6 +475,9 @@ class SmokeApiScriptTest {
 info:
   title: Three Second Room MVP API
 paths:
+  /api-docs/openapi.yaml:
+    get:
+      operationId: getOpenApiYaml
   /api/auth/social: {}
   /api/rooms/{roomId}/today: {}'
                 ;;
