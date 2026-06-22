@@ -327,8 +327,10 @@ provider value is case-insensitive. The success smoke creates or reuses the
 social-login user and then verifies `/api/me` with the issued backend bearer
 session.
 
-For Render cold starts or immediately after a deploy, allow a longer request
-timeout and a few retries:
+The smoke script defaults are tuned for Render cold starts: each request can
+retry 6 times, waits 10 seconds between retries, and uses a 30-second
+per-request timeout. If the service is waking from a long idle period or a
+deploy is still rolling out, you can make those limits more patient:
 
 ```bash
 SMOKE_CURL_TIMEOUT_SECONDS=180 \

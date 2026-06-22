@@ -242,6 +242,24 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script defaults tolerate transient cold start failures`() {
+        val fakeCurl = createFakeCurl(readinessFailuresBeforeSuccess = 3)
+
+        val result = runSmokeScript(
+            "https://api.example.test",
+            environment = mapOf("PATH" to "${fakeCurl.binDir.absolutePathString()}:${System.getenv("PATH")}"),
+        )
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains("liveness: ok", "readiness: ok", "info: ok", "api docs: ok")
+        assertThat(fakeCurl.callsLog.readText()).contains("--max-time 30")
+        assertThat(fakeCurl.readinessCount.readText().trim()).isEqualTo("4")
+        assertThat(fakeCurl.sleepLog.readText().lines().filter { it == "10" }).hasSize(3)
+    }
+
+    @Test
     fun `smoke script retries transient request failures`() {
         val fakeCurl = createFakeCurl(readinessFailuresBeforeSuccess = 1)
 
@@ -440,8 +458,10 @@ class SmokeApiScriptTest {
         val directory = Files.createTempDirectory("smoke-api-test")
         val binDir = Files.createDirectory(directory.resolve("bin"))
         val callsLog = directory.resolve("curl-calls.log")
+        val sleepLog = directory.resolve("sleep-calls.log")
         val readinessCount = directory.resolve("readiness-count")
         callsLog.writeText("")
+        sleepLog.writeText("")
         readinessCount.writeText("0")
 
         val curlPath = binDir.resolve("curl")
@@ -496,9 +516,21 @@ paths:
         )
         curlPath.toFile().setExecutable(true)
 
+        val sleepPath = binDir.resolve("sleep")
+        sleepPath.writeText(
+            """
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            printf '%s\n' "${'$'}*" >> "$sleepLog"
+            """.trimIndent(),
+        )
+        sleepPath.toFile().setExecutable(true)
+
         return FakeCurl(
             binDir = binDir,
             callsLog = callsLog,
+            sleepLog = sleepLog,
             readinessCount = readinessCount,
         )
     }
@@ -532,6 +564,7 @@ paths:
     private data class FakeCurl(
         val binDir: Path,
         val callsLog: Path,
+        val sleepLog: Path,
         val readinessCount: Path,
     )
 }
