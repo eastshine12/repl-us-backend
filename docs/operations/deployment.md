@@ -177,8 +177,8 @@ the backend should accept. Values are comma-separated because one provider can
 issue tokens to multiple app clients, such as web and native clients:
 
 ```text
-REPLUS_AUTH_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
-REPLUS_AUTH_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
+REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
+REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
 
 Detailed provider setup and smoke validation steps live in

@@ -53,8 +53,8 @@ Default provider metadata:
 Accepted audiences are configured with comma-separated environment variables:
 
 ```text
-REPLUS_AUTH_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
-REPLUS_AUTH_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
+REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
+REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
 
 If a provider has no configured client IDs, that provider fails closed with
@@ -66,7 +66,7 @@ If a provider has no configured client IDs, that provider fails closed with
    app.
 2. Create OAuth clients for every app surface that can mint ID tokens for the
    backend, such as web and iOS.
-3. Add every accepted Google client ID to `REPLUS_AUTH_GOOGLE_CLIENT_IDS`.
+3. Add every accepted Google client ID to `REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS`.
 4. Make sure the client sends a Google ID token to the backend.
 
 Do not send a Google user ID, access token, or authorization code to
@@ -78,7 +78,7 @@ Do not send a Google user ID, access token, or authorization code to
    app identifier or service ID.
 2. Confirm which audience value appears in the Apple identity token for the
    client being tested. Native and web flows can use different audience values.
-3. Add every accepted Apple audience to `REPLUS_AUTH_APPLE_CLIENT_IDS`.
+3. Add every accepted Apple audience to `REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS`.
 4. Make sure the client sends the Apple identity token to the backend.
 
 Do not send an Apple authorization code or access token to `/api/auth/social`.
@@ -89,8 +89,8 @@ The backend expects an identity token.
 Set these values in the Render web service environment:
 
 ```text
-REPLUS_AUTH_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
-REPLUS_AUTH_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
+REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
+REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
 
 Deploy or restart the service after changing them.
