@@ -15,9 +15,9 @@ replus:
     guest-session-enabled: ${REPLUS_AUTH_GUEST_SESSION_ENABLED:false}
     social:
       google:
-        client-ids: ${REPLUS_AUTH_GOOGLE_CLIENT_IDS:}
+        client-ids: ${REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS:}
       apple:
-        client-ids: ${REPLUS_AUTH_APPLE_CLIENT_IDS:}
+        client-ids: ${REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS:}
   web-base-url: ${REPLUS_WEB_BASE_URL:}
   web:
     cors:
