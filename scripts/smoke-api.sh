@@ -4,14 +4,15 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/smoke-api.sh [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
-  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
+  scripts/smoke-api.sh [--expect-social-client-ids-configured] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
+  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--expect-social-client-ids-configured] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
 
 Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
   - /actuator/info
   - /api-docs/openapi.yaml
+  - /actuator/info reports Google and Apple client IDs configured when --expect-social-client-ids-configured is provided
   - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
   - /api/auth/social and /api/me with a real provider token when --with-social-auth-success is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
@@ -19,6 +20,7 @@ Checks:
 
 Examples:
   scripts/smoke-api.sh https://api.example.com
+  scripts/smoke-api.sh --expect-social-client-ids-configured https://api.example.com
   scripts/smoke-api.sh --with-social-auth-failure https://api.example.com
   SMOKE_SOCIAL_AUTH_TOKEN=<id-token> scripts/smoke-api.sh --with-social-auth-success https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
@@ -39,6 +41,7 @@ with_guest_auth=false
 with_room_flow=false
 with_social_auth_failure=false
 with_social_auth_success=false
+expect_social_client_ids_configured=false
 base_url="${API_BASE_URL:-}"
 smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-30}"
@@ -52,6 +55,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-guest-auth)
       with_guest_auth=true
+      shift
+      ;;
+    --expect-social-client-ids-configured)
+      expect_social_client_ids_configured=true
       shift
       ;;
     --with-social-auth-failure)
@@ -260,6 +267,21 @@ require_body_contains() {
   fi
 }
 
+run_social_client_ids_configured_check() {
+  local compact_info_body
+
+  compact_info_body="$(printf '%s' "$info_body" | tr -d '[:space:]')"
+  if [[ "$compact_info_body" != *'"google":{"clientIdsConfigured":true}'* ]]; then
+    echo "social client ids: google client IDs are not configured" >&2
+    exit 1
+  fi
+  if [[ "$compact_info_body" != *'"apple":{"clientIdsConfigured":true}'* ]]; then
+    echo "social client ids: apple client IDs are not configured" >&2
+    exit 1
+  fi
+  echo "social client ids: ok"
+}
+
 create_guest_session() {
   local display_name="$1"
   local body
@@ -452,6 +474,10 @@ if [[ "$info_body" != *'"name":"repl.us backend"'* ]]; then
   exit 1
 fi
 echo "info: ok"
+
+if [[ "$expect_social_client_ids_configured" == "true" ]]; then
+  run_social_client_ids_configured_check
+fi
 
 api_docs_body="$(request GET "/api-docs/openapi.yaml")"
 if [[ "$api_docs_body" != openapi:\ 3.0.3* || "$api_docs_body" != *'/api/auth/social:'* ]]; then

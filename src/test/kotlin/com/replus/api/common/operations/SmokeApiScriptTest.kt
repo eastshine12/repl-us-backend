@@ -90,6 +90,36 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script can require google and apple client ids to be configured`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            infoBody = configuredSocialClientIdsInfoBody(),
+        )
+
+        val result = runSmokeScript("--expect-social-client-ids-configured", fakeApi)
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains("social client ids: ok")
+    }
+
+    @Test
+    fun `smoke script fails when expected social client ids are not configured`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            infoBody = configuredSocialClientIdsInfoBody(appleConfigured = false),
+        )
+
+        val result = runSmokeScript("--expect-social-client-ids-configured", fakeApi)
+
+        assertThat(result.exitCode).isEqualTo(1)
+        assertThat(result.output).contains("social client ids: apple client IDs are not configured")
+    }
+
+    @Test
     fun `smoke script checks social auth success flow when provider token is configured`() {
         val receivedAuthorizationHeaders = mutableListOf<String?>()
         val receivedSocialLoginBodies = mutableListOf<String>()
@@ -211,6 +241,7 @@ class SmokeApiScriptTest {
         assertThat(result.output).contains(
             "--with-guest-auth",
             "--with-room-flow",
+            "--expect-social-client-ids-configured",
             "--with-social-auth-failure",
             "--with-social-auth-success",
             "/actuator/health/readiness",
@@ -282,6 +313,7 @@ class SmokeApiScriptTest {
         receivedDisplayNames: MutableList<String> = mutableListOf(),
         receivedOperationsTokens: MutableList<String?> = mutableListOf(),
         receivedSocialLoginBodies: MutableList<String> = mutableListOf(),
+        infoBody: String = defaultInfoBody(),
         openApiYaml: String = """
             openapi: 3.0.3
             info:
@@ -309,7 +341,7 @@ class SmokeApiScriptTest {
             exchange.respond("""{"status":"UP"}""")
         }
         httpServer.createContext("/actuator/info") { exchange ->
-            exchange.respond("""{"app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"}}""")
+            exchange.respond(infoBody)
         }
         httpServer.createContext("/api-docs/openapi.yaml") { exchange ->
             exchange.respond(openApiYaml, contentType = "application/yaml")
@@ -453,6 +485,28 @@ class SmokeApiScriptTest {
 
         return "http://127.0.0.1:${httpServer.address.port}"
     }
+
+    private fun defaultInfoBody(): String = configuredSocialClientIdsInfoBody(
+        googleConfigured = false,
+        appleConfigured = false,
+    )
+
+    private fun configuredSocialClientIdsInfoBody(
+        googleConfigured: Boolean = true,
+        appleConfigured: Boolean = true,
+    ): String = """
+        {
+          "app":{"name":"repl.us backend","version":"0.1.0-SNAPSHOT"},
+          "auth":{
+            "social":{
+              "providers":{
+                "google":{"clientIdsConfigured":$googleConfigured},
+                "apple":{"clientIdsConfigured":$appleConfigured}
+              }
+            }
+          }
+        }
+    """.trimIndent()
 
     private fun createFakeCurl(readinessFailuresBeforeSuccess: Int = 0): FakeCurl {
         val directory = Files.createTempDirectory("smoke-api-test")
