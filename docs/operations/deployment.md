@@ -347,6 +347,19 @@ provider value is case-insensitive. The success smoke creates or reuses the
 social-login user and then verifies `/api/me` with the issued backend bearer
 session.
 
+To validate room-scoped APIs with a real social-login session, run the social
+room flow smoke with an operations cleanup token. This creates and then deletes
+a smoke room, and does not require guest sessions:
+
+```bash
+export SMOKE_SOCIAL_AUTH_PROVIDER=GOOGLE
+read -r -s SMOKE_SOCIAL_AUTH_TOKEN
+export SMOKE_SOCIAL_AUTH_TOKEN
+export SMOKE_CLEANUP_TOKEN=<operations-token>
+scripts/smoke-api.sh --with-social-room-flow https://<api-host>
+unset SMOKE_SOCIAL_AUTH_TOKEN SMOKE_CLEANUP_TOKEN
+```
+
 The smoke script defaults are tuned for Render cold starts: each request can
 retry 6 times, waits 10 seconds between retries, and uses a 30-second
 per-request timeout. If the service is waking from a long idle period or a

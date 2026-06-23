@@ -183,6 +183,84 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script requires cleanup token for social room flow`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(receivedAuthorizationHeaders)
+
+        val result = runSmokeScript(
+            "--with-social-room-flow",
+            fakeApi,
+            environment = mapOf("SMOKE_SOCIAL_AUTH_TOKEN" to "real-social-token"),
+        )
+
+        assertThat(result.exitCode).isEqualTo(64)
+        assertThat(result.output)
+            .contains("SMOKE_CLEANUP_TOKEN is required when --with-social-room-flow is provided")
+    }
+
+    @Test
+    fun `smoke script requires social token for social room flow`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(receivedAuthorizationHeaders)
+
+        val result = runSmokeScript(
+            "--with-social-room-flow",
+            fakeApi,
+            environment = mapOf("SMOKE_CLEANUP_TOKEN" to "cleanup-secret"),
+        )
+
+        assertThat(result.exitCode).isEqualTo(64)
+        assertThat(result.output)
+            .contains("SMOKE_SOCIAL_AUTH_TOKEN is required when --with-social-room-flow is provided")
+    }
+
+    @Test
+    fun `smoke script checks social room flow with the issued social session`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val receivedDisplayNames = mutableListOf<String>()
+        val receivedOperationsTokens = mutableListOf<String?>()
+        val receivedSocialLoginBodies = mutableListOf<String>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            receivedDisplayNames = receivedDisplayNames,
+            receivedOperationsTokens = receivedOperationsTokens,
+            receivedSocialLoginBodies = receivedSocialLoginBodies,
+        )
+
+        val result = runSmokeScript(
+            "--with-social-room-flow",
+            fakeApi,
+            environment = mapOf(
+                "SMOKE_SOCIAL_AUTH_TOKEN" to "real-social-token",
+                "SMOKE_CLEANUP_TOKEN" to "cleanup-secret",
+            ),
+        )
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains(
+            "social auth: ok",
+            "social current user: ok",
+            "room create: ok",
+            "room detail: ok",
+            "invite link: ok",
+            "today mission: ok",
+            "mission update: ok",
+            "room cleanup: ok",
+        )
+        assertThat(result.output).doesNotContain("guest auth: ok", "real-social-token")
+        assertThat(receivedAuthorizationHeaders).allSatisfy { header ->
+            assertThat(header).isEqualTo("Bearer smoke-social-token")
+        }
+        assertThat(receivedDisplayNames).isEmpty()
+        assertThat(receivedOperationsTokens).containsExactly("cleanup-secret")
+        assertThat(receivedSocialLoginBodies).containsExactly(
+            """{"provider":"GOOGLE","providerToken":"real-social-token"}""",
+        )
+    }
+
+    @Test
     fun `smoke script requires a social auth token for success check`() {
         val receivedAuthorizationHeaders = mutableListOf<String?>()
         val fakeApi = startFakeApi(receivedAuthorizationHeaders)
@@ -268,6 +346,7 @@ class SmokeApiScriptTest {
         assertThat(result.output).contains(
             "--with-guest-auth",
             "--with-room-flow",
+            "--with-social-room-flow",
             "--expect-social-client-ids-configured",
             "--with-social-auth-failure",
             "--with-social-auth-success",

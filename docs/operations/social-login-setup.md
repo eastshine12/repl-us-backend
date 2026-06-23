@@ -170,6 +170,23 @@ Use `SMOKE_SOCIAL_AUTH_PROVIDER=apple` when validating an Apple identity token.
 The provider value is case-insensitive. Do not commit or paste the token into
 issues, PRs, deployment logs, or chat.
 
+To validate that a real social-login session can own room-scoped APIs, include
+the social room flow smoke. This flow creates a smoke room, so it requires the
+operations cleanup token:
+
+```bash
+export SMOKE_SOCIAL_AUTH_PROVIDER=google
+read -r -s SMOKE_SOCIAL_AUTH_TOKEN
+export SMOKE_SOCIAL_AUTH_TOKEN
+export SMOKE_CLEANUP_TOKEN=<operations-token>
+scripts/smoke-api.sh --with-social-room-flow https://<api-host>
+unset SMOKE_SOCIAL_AUTH_TOKEN SMOKE_CLEANUP_TOKEN
+```
+
+`--with-social-room-flow` verifies social login, `/api/me`, room creation, room
+detail, invite-link creation, today's mission lookup, mission editing, and smoke
+room cleanup. It does not require guest sessions.
+
 ## Failure Guide
 
 `/api/auth/social` returns `401 UNAUTHENTICATED`:
