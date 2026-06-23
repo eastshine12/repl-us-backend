@@ -106,6 +106,33 @@ class SmokeApiScriptTest {
     }
 
     @Test
+    fun `smoke script can require only one social provider client id to be configured`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(
+            receivedAuthorizationHeaders = receivedAuthorizationHeaders,
+            infoBody = configuredSocialClientIdsInfoBody(googleConfigured = true, appleConfigured = false),
+        )
+
+        val result = runSmokeScript("--expect-social-client-ids-configured=google", fakeApi)
+
+        assertThat(result.exitCode)
+            .withFailMessage(result.output)
+            .isEqualTo(0)
+        assertThat(result.output).contains("social client ids: google ok")
+    }
+
+    @Test
+    fun `smoke script rejects unsupported social provider client id checks`() {
+        val receivedAuthorizationHeaders = mutableListOf<String?>()
+        val fakeApi = startFakeApi(receivedAuthorizationHeaders)
+
+        val result = runSmokeScript("--expect-social-client-ids-configured=github", fakeApi)
+
+        assertThat(result.exitCode).isEqualTo(64)
+        assertThat(result.output).contains("must be GOOGLE or APPLE")
+    }
+
+    @Test
     fun `smoke script fails when expected social client ids are not configured`() {
         val receivedAuthorizationHeaders = mutableListOf<String?>()
         val fakeApi = startFakeApi(

@@ -310,9 +310,16 @@ scripts/smoke-api.sh --with-social-auth-failure https://<api-host>
 This check is safe to run in normal production because it does not create users
 or sessions.
 
-After the Google and Apple client ID environment variables are configured, you
-can verify that the deployed app sees both provider settings without using real
-provider tokens:
+After a provider client ID environment variable is configured, you can verify
+that the deployed app sees that provider setting without using real provider
+tokens:
+
+```bash
+scripts/smoke-api.sh --expect-social-client-ids-configured=GOOGLE https://<api-host>
+```
+
+Use `=APPLE` for Apple-only validation. After the Google and Apple client ID
+environment variables are both configured, verify both provider settings:
 
 ```bash
 scripts/smoke-api.sh --expect-social-client-ids-configured https://<api-host>

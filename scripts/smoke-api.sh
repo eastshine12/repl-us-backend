@@ -4,15 +4,15 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/smoke-api.sh [--expect-social-client-ids-configured] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
-  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--expect-social-client-ids-configured] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
+  scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
+  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
 
 Checks:
   - /actuator/health/liveness
   - /actuator/health/readiness
   - /actuator/info
   - /api-docs/openapi.yaml
-  - /actuator/info reports Google and Apple client IDs configured when --expect-social-client-ids-configured is provided
+  - /actuator/info reports requested Google and/or Apple client IDs configured when --expect-social-client-ids-configured is provided
   - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
   - /api/auth/social and /api/me with a real provider token when --with-social-auth-success is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
@@ -21,6 +21,7 @@ Checks:
 Examples:
   scripts/smoke-api.sh https://api.example.com
   scripts/smoke-api.sh --expect-social-client-ids-configured https://api.example.com
+  scripts/smoke-api.sh --expect-social-client-ids-configured=GOOGLE https://api.example.com
   scripts/smoke-api.sh --with-social-auth-failure https://api.example.com
   SMOKE_SOCIAL_AUTH_TOKEN=<id-token> scripts/smoke-api.sh --with-social-auth-success https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
@@ -42,6 +43,7 @@ with_room_flow=false
 with_social_auth_failure=false
 with_social_auth_success=false
 expect_social_client_ids_configured=false
+expected_social_client_id_providers=""
 base_url="${API_BASE_URL:-}"
 smoke_connect_timeout_seconds="${SMOKE_CONNECT_TIMEOUT_SECONDS:-5}"
 smoke_curl_timeout_seconds="${SMOKE_CURL_TIMEOUT_SECONDS:-30}"
@@ -59,6 +61,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --expect-social-client-ids-configured)
       expect_social_client_ids_configured=true
+      expected_social_client_id_providers="GOOGLE APPLE"
+      shift
+      ;;
+    --expect-social-client-ids-configured=*)
+      expect_social_client_ids_configured=true
+      expected_social_client_id_providers="$(printf '%s' "${1#*=}" | tr ',' ' ' | tr '[:lower:]' '[:upper:]')"
       shift
       ;;
     --with-social-auth-failure)
@@ -125,6 +133,19 @@ if [[ "$with_social_auth_success" == "true" ]]; then
     echo "SMOKE_SOCIAL_AUTH_PROVIDER must be GOOGLE or APPLE" >&2
     exit 64
   fi
+fi
+
+if [[ "$expect_social_client_ids_configured" == "true" ]]; then
+  if [[ -z "${expected_social_client_id_providers// /}" ]]; then
+    echo "--expect-social-client-ids-configured must be GOOGLE or APPLE when a provider is specified" >&2
+    exit 64
+  fi
+  for provider in $expected_social_client_id_providers; do
+    if [[ "$provider" != "GOOGLE" && "$provider" != "APPLE" ]]; then
+      echo "--expect-social-client-ids-configured provider must be GOOGLE or APPLE" >&2
+      exit 64
+    fi
+  done
 fi
 
 base_url="${base_url%/}"
@@ -269,17 +290,36 @@ require_body_contains() {
 
 run_social_client_ids_configured_check() {
   local compact_info_body
+  local provider
+  local checked_count=0
 
   compact_info_body="$(printf '%s' "$info_body" | tr -d '[:space:]')"
-  if [[ "$compact_info_body" != *'"google":{"clientIdsConfigured":true}'* ]]; then
-    echo "social client ids: google client IDs are not configured" >&2
-    exit 1
+  for provider in $expected_social_client_id_providers; do
+    checked_count=$((checked_count + 1))
+    case "$provider" in
+      GOOGLE)
+        if [[ "$compact_info_body" != *'"google":{"clientIdsConfigured":true}'* ]]; then
+          echo "social client ids: google client IDs are not configured" >&2
+          exit 1
+        fi
+        if [[ "$expected_social_client_id_providers" != "GOOGLE APPLE" ]]; then
+          echo "social client ids: google ok"
+        fi
+        ;;
+      APPLE)
+        if [[ "$compact_info_body" != *'"apple":{"clientIdsConfigured":true}'* ]]; then
+          echo "social client ids: apple client IDs are not configured" >&2
+          exit 1
+        fi
+        if [[ "$expected_social_client_id_providers" != "GOOGLE APPLE" ]]; then
+          echo "social client ids: apple ok"
+        fi
+        ;;
+    esac
+  done
+  if (( checked_count > 1 )); then
+    echo "social client ids: ok"
   fi
-  if [[ "$compact_info_body" != *'"apple":{"clientIdsConfigured":true}'* ]]; then
-    echo "social client ids: apple client IDs are not configured" >&2
-    exit 1
-  fi
-  echo "social client ids: ok"
 }
 
 create_guest_session() {
