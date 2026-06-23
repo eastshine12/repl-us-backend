@@ -4,8 +4,8 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow] <api-base-url>
-  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-guest-auth] [--with-room-flow]
+  scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-social-room-flow] [--with-guest-auth] [--with-room-flow] <api-base-url>
+  API_BASE_URL=<api-base-url> scripts/smoke-api.sh [--expect-social-client-ids-configured[=GOOGLE|APPLE]] [--with-social-auth-failure] [--with-social-auth-success] [--with-social-room-flow] [--with-guest-auth] [--with-room-flow]
 
 Checks:
   - /actuator/health/liveness
@@ -15,6 +15,7 @@ Checks:
   - /actuator/info reports requested Google and/or Apple client IDs configured when --expect-social-client-ids-configured is provided
   - /api/auth/social rejects invalid Google tokens when --with-social-auth-failure is provided
   - /api/auth/social and /api/me with a real provider token when --with-social-auth-success is provided
+  - social login, owner room APIs, and cleanup when --with-social-room-flow is provided
   - /api/auth/guest and /api/me when --with-guest-auth is provided
   - room create, invite join, and /api/rooms/{roomId}/today when --with-room-flow is provided
 
@@ -24,6 +25,7 @@ Examples:
   scripts/smoke-api.sh --expect-social-client-ids-configured=GOOGLE https://api.example.com
   scripts/smoke-api.sh --with-social-auth-failure https://api.example.com
   SMOKE_SOCIAL_AUTH_TOKEN=<id-token> scripts/smoke-api.sh --with-social-auth-success https://api.example.com
+  SMOKE_SOCIAL_AUTH_TOKEN=<id-token> SMOKE_CLEANUP_TOKEN=<operations-token> scripts/smoke-api.sh --with-social-room-flow https://api.example.com
   scripts/smoke-api.sh --with-guest-auth https://api.example.com
   scripts/smoke-api.sh --with-room-flow https://api.example.com
 
@@ -34,7 +36,7 @@ Environment:
   SMOKE_RETRY_DELAY_SECONDS      Delay between retries. Defaults to 10.
   SMOKE_SOCIAL_AUTH_PROVIDER     GOOGLE or APPLE for --with-social-auth-success. Defaults to GOOGLE.
   SMOKE_SOCIAL_AUTH_TOKEN        Real provider id token for --with-social-auth-success.
-  SMOKE_CLEANUP_TOKEN            Optional operations token for smoke room cleanup.
+  SMOKE_CLEANUP_TOKEN            Optional operations token for smoke room cleanup. Required for --with-social-room-flow.
 EOF
 }
 
@@ -42,6 +44,7 @@ with_guest_auth=false
 with_room_flow=false
 with_social_auth_failure=false
 with_social_auth_success=false
+with_social_room_flow=false
 expect_social_client_ids_configured=false
 expected_social_client_id_providers=""
 base_url="${API_BASE_URL:-}"
@@ -52,6 +55,7 @@ smoke_retry_delay_seconds="${SMOKE_RETRY_DELAY_SECONDS:-10}"
 smoke_social_auth_provider="$(printf '%s' "${SMOKE_SOCIAL_AUTH_PROVIDER:-GOOGLE}" | tr '[:lower:]' '[:upper:]')"
 smoke_social_auth_token="${SMOKE_SOCIAL_AUTH_TOKEN:-}"
 smoke_cleanup_token="${SMOKE_CLEANUP_TOKEN:-}"
+social_access_token=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -75,6 +79,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-social-auth-success)
       with_social_auth_success=true
+      shift
+      ;;
+    --with-social-room-flow)
+      with_social_auth_success=true
+      with_social_room_flow=true
       shift
       ;;
     --with-room-flow)
@@ -126,13 +135,22 @@ require_integer_at_least "SMOKE_RETRY_DELAY_SECONDS" "$smoke_retry_delay_seconds
 
 if [[ "$with_social_auth_success" == "true" ]]; then
   if [[ -z "$smoke_social_auth_token" ]]; then
-    echo "SMOKE_SOCIAL_AUTH_TOKEN is required when --with-social-auth-success is provided" >&2
+    if [[ "$with_social_room_flow" == "true" ]]; then
+      echo "SMOKE_SOCIAL_AUTH_TOKEN is required when --with-social-room-flow is provided" >&2
+    else
+      echo "SMOKE_SOCIAL_AUTH_TOKEN is required when --with-social-auth-success is provided" >&2
+    fi
     exit 64
   fi
   if [[ "$smoke_social_auth_provider" != "GOOGLE" && "$smoke_social_auth_provider" != "APPLE" ]]; then
     echo "SMOKE_SOCIAL_AUTH_PROVIDER must be GOOGLE or APPLE" >&2
     exit 64
   fi
+fi
+
+if [[ "$with_social_room_flow" == "true" && -z "$smoke_cleanup_token" ]]; then
+  echo "SMOKE_CLEANUP_TOKEN is required when --with-social-room-flow is provided" >&2
+  exit 64
 fi
 
 if [[ "$expect_social_client_ids_configured" == "true" ]]; then
@@ -339,6 +357,7 @@ create_guest_session() {
 
 run_room_flow() {
   local owner_access_token="$1"
+  local include_invite_member="${2:-true}"
   local timestamp
   local room_name
   local room_body
@@ -393,17 +412,19 @@ run_room_flow() {
   fi
   echo "invite link: ok"
 
-  member_access_token="$(create_guest_session "Smoke Member")"
-  join_body="$(
-    request POST "/api/invite-links/$invite_code/join" \
-      -H "Authorization: Bearer $member_access_token"
-  )"
-  member_id="$(printf '%s' "$join_body" | extract_json_string "currentUserMemberId")"
-  require_value "invite join" "$member_id"
-  require_body_contains "invite join" "$join_body" "\"id\":\"$room_id\""
-  require_body_contains "invite join" "$join_body" '"currentUserRole":"MEMBER"'
-  require_body_contains "invite join" "$join_body" '"memberCount":2'
-  echo "invite join: ok"
+  if [[ "$include_invite_member" == "true" ]]; then
+    member_access_token="$(create_guest_session "Smoke Member")"
+    join_body="$(
+      request POST "/api/invite-links/$invite_code/join" \
+        -H "Authorization: Bearer $member_access_token"
+    )"
+    member_id="$(printf '%s' "$join_body" | extract_json_string "currentUserMemberId")"
+    require_value "invite join" "$member_id"
+    require_body_contains "invite join" "$join_body" "\"id\":\"$room_id\""
+    require_body_contains "invite join" "$join_body" '"currentUserRole":"MEMBER"'
+    require_body_contains "invite join" "$join_body" '"memberCount":2'
+    echo "invite join: ok"
+  fi
 
   today_body="$(
     request GET "/api/rooms/$room_id/today" \
@@ -427,13 +448,15 @@ run_room_flow() {
   require_body_contains "mission update" "$update_body" '"editCount":1'
   echo "mission update: ok"
 
-  cleanup_body="$(
-    request DELETE "/api/rooms/$room_id/members/$member_id" \
-      -H "Authorization: Bearer $owner_access_token"
-  )"
-  require_body_contains "member cleanup" "$cleanup_body" "\"memberId\":\"$member_id\""
-  require_body_contains "member cleanup" "$cleanup_body" '"status":"REMOVED"'
-  echo "member cleanup: ok"
+  if [[ "$include_invite_member" == "true" ]]; then
+    cleanup_body="$(
+      request DELETE "/api/rooms/$room_id/members/$member_id" \
+        -H "Authorization: Bearer $owner_access_token"
+    )"
+    require_body_contains "member cleanup" "$cleanup_body" "\"memberId\":\"$member_id\""
+    require_body_contains "member cleanup" "$cleanup_body" '"status":"REMOVED"'
+    echo "member cleanup: ok"
+  fi
 
   if [[ -n "$smoke_cleanup_token" ]]; then
     room_cleanup_body="$(
@@ -492,6 +515,7 @@ run_social_auth_success_check() {
   fi
   access_token="$(printf '%s' "$body" | extract_access_token)"
   require_value "social auth" "$access_token"
+  social_access_token="$access_token"
   echo "social auth: ok"
 
   me_body="$(
@@ -536,6 +560,10 @@ fi
 
 if [[ "$with_social_auth_success" == "true" ]]; then
   run_social_auth_success_check
+
+  if [[ "$with_social_room_flow" == "true" ]]; then
+    run_room_flow "$social_access_token" false
+  fi
 fi
 
 if [[ "$with_guest_auth" == "true" ]]; then
@@ -553,6 +581,6 @@ if [[ "$with_guest_auth" == "true" ]]; then
   echo "current user: ok"
 
   if [[ "$with_room_flow" == "true" ]]; then
-    run_room_flow "$access_token"
+    run_room_flow "$access_token" true
   fi
 fi
