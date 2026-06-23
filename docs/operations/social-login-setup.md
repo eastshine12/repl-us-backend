@@ -15,8 +15,9 @@ sign in.
 
 The first production social-login slice supports:
 
-- Google ID tokens.
-- Apple identity tokens.
+- Google ID tokens in the current deployment.
+- Apple identity token validation in the backend. Apple Developer setup is
+  deferred until the native-app distribution phase.
 - Backend-owned bearer sessions after provider verification.
 
 ## Backend Contract
@@ -74,6 +75,10 @@ Do not send a Google user ID, access token, or authorization code to
 
 ## Apple Setup
 
+Apple setup is intentionally deferred until the app distribution phase. Keep
+`REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS` unset until an Apple Developer Program
+account, app identifier, and service ID or bundle ID are ready.
+
 1. In the Apple Developer account, enable Sign in with Apple for the relevant
    app identifier or service ID.
 2. Confirm which audience value appears in the Apple identity token for the
@@ -86,10 +91,16 @@ The backend expects an identity token.
 
 ## Render Setup
 
-Set these values in the Render web service environment:
+For the current Google-only deployment, set the Google audience and leave the
+Apple audience unset:
 
 ```text
 REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
+```
+
+When Apple setup is ready, add:
+
+```text
 REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
 
@@ -112,7 +123,7 @@ Expected fields:
           "clientIdsConfigured": true
         },
         "apple": {
-          "clientIdsConfigured": true
+          "clientIdsConfigured": false
         }
       }
     }
@@ -138,8 +149,8 @@ deployed backend sees it without sending a real provider token:
 scripts/smoke-api.sh --expect-social-client-ids-configured=GOOGLE https://<api-host>
 ```
 
-Use `=APPLE` for Apple-only validation. After both Google and Apple are
-configured, validate both provider settings together:
+Use `=APPLE` only after Apple Developer setup is complete. After both Google
+and Apple are configured, validate both provider settings together:
 
 ```bash
 scripts/smoke-api.sh --expect-social-client-ids-configured https://<api-host>

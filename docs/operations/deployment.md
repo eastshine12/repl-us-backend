@@ -173,13 +173,17 @@ REPLUS_AUTH_GUEST_SESSION_ENABLED=true
 ```
 
 For production social login, configure the Google and Apple OIDC audiences that
-the backend should accept. Values are comma-separated because one provider can
-issue tokens to multiple app clients, such as web and native clients:
+the backend should accept. The current deployment is Google-only; Apple remains
+unset until the native-app distribution phase. Values are comma-separated
+because one provider can issue tokens to multiple app clients, such as web and
+native clients:
 
 ```text
 REPLUS_AUTH_SOCIAL_GOOGLE_CLIENT_IDS=<google-web-client-id>,<google-ios-client-id>
-REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>
 ```
+
+Add `REPLUS_AUTH_SOCIAL_APPLE_CLIENT_IDS=<apple-service-id-or-bundle-id>` only
+after Apple Developer Program setup is ready.
 
 Detailed provider setup and smoke validation steps live in
 [social-login-setup.md](social-login-setup.md).
@@ -318,8 +322,9 @@ tokens:
 scripts/smoke-api.sh --expect-social-client-ids-configured=GOOGLE https://<api-host>
 ```
 
-Use `=APPLE` for Apple-only validation. After the Google and Apple client ID
-environment variables are both configured, verify both provider settings:
+Use `=APPLE` only after Apple Developer setup is complete. After the Google and
+Apple client ID environment variables are both configured, verify both provider
+settings:
 
 ```bash
 scripts/smoke-api.sh --expect-social-client-ids-configured https://<api-host>
